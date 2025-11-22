@@ -5,13 +5,14 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Iterable, List, Tuple
 
 from openai import OpenAI
 
 Grid = List[List[int]]
 MODEL_NAME = "gpt-5.1"
 SUPPORTED_REASONING = {"none", "low", "medium", "high"}
+ResultRecord = Tuple[Path, int, bool]
 
 
 @dataclass
@@ -29,10 +30,9 @@ class Task:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Send ARC-AGI tasks to OpenAI.")
     parser.add_argument(
-        "json_paths",
+        "task_list",
         type=Path,
-        nargs="+",
-        help="One or more task JSON files (e.g. data/arc-agi-2-training/00576224.json)",
+        help="JSON file containing a list of task paths (e.g. data/first_100.json).",
     )
     parser.add_argument(
         "--reasoning",
@@ -50,6 +50,22 @@ def load_task(json_path: Path) -> Task:
         return [Example(input=ex["input"], output=ex["output"]) for ex in items]
 
     return Task(train=to_examples(data["train"]), test=to_examples(data["test"]))
+
+
+def load_task_paths(list_path: Path) -> List[Path]:
+    payload = json.loads(list_path.read_text())
+    if isinstance(payload, dict):
+        tasks = payload.get("tasks")
+    else:
+        tasks = payload
+    if not isinstance(tasks, Iterable):
+        raise ValueError(f"Task list in {list_path} must be a list.")
+    result = []
+    for item in tasks:
+        if not isinstance(item, str):
+            raise ValueError("Each task entry must be a string path.")
+        result.append(Path(item))
+    return result
 
 
 def format_grid(grid: Grid) -> str:
@@ -125,7 +141,12 @@ def verify_prediction(predicted: Grid, expected: Grid) -> bool:
     return predicted == expected
 
 
-def solve_task(client: OpenAI, task_path: Path, reasoning_effort: str) -> None:
+def solve_task(
+    client: OpenAI,
+    task_path: Path,
+    reasoning_effort: str,
+    results: List[ResultRecord],
+) -> None:
     task = load_task(task_path)
     for idx, test_example in enumerate(task.test, start=1):
         print(f"\n[{task_path}] Solving test case {idx} with OpenAI...")
@@ -144,16 +165,33 @@ def solve_task(client: OpenAI, task_path: Path, reasoning_effort: str) -> None:
             predicted_grid = parse_grid_from_text(response_text)
         except ValueError as exc:
             print(f"Failed to parse model output: {exc}")
+            results.append((task_path, idx, False))
             continue
 
         if verify_prediction(predicted_grid, test_example.output):
             print("Result: PASS ✅")
+            results.append((task_path, idx, True))
         else:
             print("Result: FAIL ❌")
             print("Predicted grid:")
             print(format_grid(predicted_grid))
             print("Expected grid:")
             print(format_grid(test_example.output))
+            results.append((task_path, idx, False))
+
+
+def print_summary(results: List[ResultRecord]) -> None:
+    if not results:
+        print("\nNo test cases were executed.")
+        return
+
+    print("\nSummary:")
+    header = f"{'Task':60} {'Test':>4} {'Result':>6}"
+    print(header)
+    print("-" * len(header))
+    for path, idx, success in results:
+        result_str = "PASS" if success else "FAIL"
+        print(f"{str(path):60} {idx:>4} {result_str:>6}")
 
 
 def main() -> None:
@@ -165,8 +203,16 @@ def main() -> None:
 
     client = OpenAI(api_key=api_key)
 
-    for path in args.json_paths:
-        solve_task(client, path, args.reasoning)
+    results: List[ResultRecord] = []
+    try:
+        task_paths = load_task_paths(args.task_list)
+    except ValueError as exc:
+        raise RuntimeError(f"Failed to read task list {args.task_list}: {exc}") from exc
+
+    for path in task_paths:
+        solve_task(client, path, args.reasoning, results)
+
+    print_summary(results)
 
 
 if __name__ == "__main__":
