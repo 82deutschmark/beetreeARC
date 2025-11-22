@@ -210,14 +210,20 @@ def call_openai_internal(
 def call_anthropic(
     client: Anthropic, prompt: str, model: str, budget: int
 ) -> ModelResponse:
+    max_tokens = 8192
+    if budget and budget > 0:
+        max_tokens = max(8192, budget + 4096)
+
     kwargs = {
         "model": model,
-        "max_tokens": 8192,
+        "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}],
     }
 
     if budget and budget > 0:
         kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
+        # Add potential beta headers if required for specific features
+        # kwargs["extra_headers"] = {"anthropic-beta": "output-128k-2025-02-19"}
 
     response = client.messages.create(**kwargs)
 
@@ -338,13 +344,7 @@ def print_result_row(
     success: bool,
     model_arg: str,
 ) -> None:
-    _, _, config = parse_model_arg(model_arg)
-    if isinstance(config, str):
-        column_key = f"Reasoning={config.capitalize()}"
-    elif config is None or config == 0:
-        column_key = "Reasoning=No-Thinking"
-    else:
-        column_key = f"Reasoning=Thinking-{config}"
+    column_key = get_column_name(model_arg)
 
     if column_key not in TABLE_COLUMNS:
         print(
@@ -368,7 +368,7 @@ def main() -> None:
         raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
     openai_client = OpenAI(api_key=openai_key)
 
-    claude_key = os.getenv("CLAUDE_API_KEY")
+    claude_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
     anthropic_client = None
     if claude_key:
         anthropic_client = Anthropic(api_key=claude_key)
