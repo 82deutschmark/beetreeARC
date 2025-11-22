@@ -1,102 +1,102 @@
-| # | Task | Reasoning=None | Reasoning=Low | Reasoning=Medium | Reasoning=High |
-|---|------|-----------------|----------------|------------------|----------------|
-| 1 | data/arc-agi-2-training/00576224.json | PASS | - | - | - |
-| 2 | data/arc-agi-2-training/007bbfb7.json | FAIL | PASS | - | - |
-| 3 | data/arc-agi-2-training/009d5c81.json | FAIL | PASS | - | - |
-| 4 | data/arc-agi-2-training/00d62c1b.json | FAIL | FAIL | FAIL | - |
-| 5 | data/arc-agi-2-training/00dbd492.json | FAIL | FAIL | PASS | - |
-| 6 | data/arc-agi-2-training/017c7c7b.json | PASS | - | - | - |
-| 7 | data/arc-agi-2-training/025d127b.json | PASS | - | - | - |
-| 8 | data/arc-agi-2-training/03560426.json | FAIL | PASS | - | - |
-| 9 | data/arc-agi-2-training/045e512c.json | FAIL | FAIL | FAIL | - |
-| 10 | data/arc-agi-2-training/0520fde7.json | FAIL | PASS | - | - |
-| 11 | data/arc-agi-2-training/05269061.json | FAIL | FAIL | PASS | - |
-| 12 | data/arc-agi-2-training/05a7bcf2.json | FAIL | FAIL | FAIL | - |
-| 13 | data/arc-agi-2-training/05f2a901.json | FAIL | PASS | - | - |
-| 14 | data/arc-agi-2-training/0607ce86.json | FAIL | FAIL | FAIL | - |
-| 15 | data/arc-agi-2-training/0692e18c.json | FAIL | PASS | - | - |
-| 16 | data/arc-agi-2-training/06df4c85.json | FAIL | FAIL | PASS | - |
-| 17 | data/arc-agi-2-training/070dd51e.json | FAIL | PASS | - | - |
-| 18 | data/arc-agi-2-training/08ed6ac7.json | PASS | - | - | - |
-| 19 | data/arc-agi-2-training/09629e4f.json | FAIL | FAIL | FAIL | - |
-| 20 | data/arc-agi-2-training/0962bcdd.json | FAIL | PASS | - | - |
-| 21 | data/arc-agi-2-training/09c534e7.json | FAIL | FAIL | FAIL | - |
-| 22 | data/arc-agi-2-training/0a1d4ef5.json | FAIL | FAIL | FAIL | - |
-| 23 | data/arc-agi-2-training/0a2355a6.json | FAIL | FAIL | PASS | - |
-| 24 | data/arc-agi-2-training/0a938d79.json | FAIL | PASS | - | - |
-| 25 | data/arc-agi-2-training/0b148d64.json | FAIL | FAIL | FAIL | - |
-| 26 | data/arc-agi-2-training/0b17323b.json | FAIL | PASS | - | - |
-| 27 | data/arc-agi-2-training/0bb8deee.json | FAIL | PASS | - | - |
-| 28 | data/arc-agi-2-training/0becf7df.json | FAIL | PASS | - | - |
-| 29 | data/arc-agi-2-training/0c786b71.json | FAIL | PASS | - | - |
-| 30 | data/arc-agi-2-training/0c9aba6e.json | FAIL | PASS | - | - |
-| 31 | data/arc-agi-2-training/0ca9ddb6.json | FAIL | PASS | - | - |
-| 32 | data/arc-agi-2-training/0d3d703e.json | PASS | - | - | - |
-| 33 | data/arc-agi-2-training/0d87d2a6.json | FAIL | FAIL | FAIL | - |
-| 34 | data/arc-agi-2-training/0e206a2e.json | FAIL | FAIL | FAIL | - |
-| 35 | data/arc-agi-2-training/0e671a1a.json | FAIL | FAIL | PASS | - |
-| 36 | data/arc-agi-2-training/0f63c0b9.json | FAIL | FAIL | PASS | - |
-| 37 | data/arc-agi-2-training/103eff5b.json | FAIL | FAIL | PASS | - |
-| 38 | data/arc-agi-2-training/10fcaaa3.json | FAIL | FAIL | FAIL | - |
-| 39 | data/arc-agi-2-training/11852cab.json | FAIL | FAIL | PASS | - |
-| 40 | data/arc-agi-2-training/1190bc91.json | FAIL | FAIL | FAIL | - |
-| 41 | data/arc-agi-2-training/1190e5a7.json | FAIL | PASS | - | - |
-| 42 | data/arc-agi-2-training/11dc524f.json | FAIL | FAIL | FAIL | - |
-| 43 | data/arc-agi-2-training/11e1fe23.json | FAIL | PASS | - | - |
-| 44 | data/arc-agi-2-training/12422b43.json | FAIL | PASS | - | - |
-| 45 | data/arc-agi-2-training/12997ef3.json | FAIL | PASS | PASS | - |
-| 46 | data/arc-agi-2-training/12997ef3.json | FAIL | FAIL | PASS | - |
-| 47 | data/arc-agi-2-training/12eac192.json | FAIL | FAIL | PASS | - |
-| 48 | data/arc-agi-2-training/13713586.json | FAIL | FAIL | PASS | - |
-| 49 | data/arc-agi-2-training/137eaa0f.json | FAIL | FAIL | FAIL | - |
-| 50 | data/arc-agi-2-training/137f0df0.json | FAIL | PASS | - | - |
-| 51 | data/arc-agi-2-training/13f06aa5.json | FAIL | FAIL | PASS | - |
-| 52 | data/arc-agi-2-training/140c817e.json | FAIL | PASS | - | - |
-| 53 | data/arc-agi-2-training/14754a24.json | FAIL | FAIL | FAIL | - |
-| 54 | data/arc-agi-2-training/1478ab18.json | FAIL | FAIL | PASS | - |
-| 55 | data/arc-agi-2-training/14b8e18c.json | FAIL | FAIL | PASS | - |
-| 56 | data/arc-agi-2-training/150deff5.json | FAIL | FAIL | FAIL | - |
-| 57 | data/arc-agi-2-training/15113be4.json | FAIL | FAIL | FAIL | - |
-| 58 | data/arc-agi-2-training/15660dd6.json | FAIL | FAIL | PASS | - |
-| 59 | data/arc-agi-2-training/15663ba9.json | FAIL | FAIL | FAIL | - |
-| 60 | data/arc-agi-2-training/15696249.json | FAIL | PASS | - | - |
-| 61 | data/arc-agi-2-training/17829a00.json | FAIL | FAIL | FAIL | - |
-| 62 | data/arc-agi-2-training/178fcbfb.json | FAIL | PASS | - | - |
-| 63 | data/arc-agi-2-training/17b80ad2.json | FAIL | FAIL | PASS | - |
-| 64 | data/arc-agi-2-training/17b866bd.json | FAIL | FAIL | FAIL | - |
-| 65 | data/arc-agi-2-training/17b866bd.json | FAIL | FAIL | PASS | - |
-| 66 | data/arc-agi-2-training/17cae0c1.json | FAIL | PASS | - | - |
-| 67 | data/arc-agi-2-training/18286ef8.json | FAIL | PASS | - | - |
-| 68 | data/arc-agi-2-training/182e5d0f.json | FAIL | FAIL | FAIL | - |
-| 69 | data/arc-agi-2-training/18419cfa.json | FAIL | FAIL | FAIL | - |
-| 70 | data/arc-agi-2-training/18447a8d.json | FAIL | FAIL | FAIL | - |
-| 71 | data/arc-agi-2-training/184a9768.json | FAIL | FAIL | FAIL | - |
-| 72 | data/arc-agi-2-training/195ba7dc.json | FAIL | PASS | - | - |
-| 73 | data/arc-agi-2-training/1990f7a8.json | FAIL | FAIL | FAIL | - |
-| 74 | data/arc-agi-2-training/19bb5feb.json | PASS | - | - | - |
-| 75 | data/arc-agi-2-training/1a07d186.json | FAIL | PASS | - | - |
-| 76 | data/arc-agi-2-training/1a244afd.json | FAIL | FAIL | FAIL | - |
-| 77 | data/arc-agi-2-training/1a2e2828.json | PASS | - | - | - |
-| 78 | data/arc-agi-2-training/1a6449f1.json | FAIL | FAIL | FAIL | - |
-| 79 | data/arc-agi-2-training/1acc24af.json | FAIL | FAIL | FAIL | - |
-| 80 | data/arc-agi-2-training/1b2d62fb.json | FAIL | PASS | - | - |
-| 81 | data/arc-agi-2-training/1b59e163.json | FAIL | FAIL | PASS | - |
-| 82 | data/arc-agi-2-training/1b60fb0c.json | FAIL | FAIL | FAIL | - |
-| 83 | data/arc-agi-2-training/1b8318e3.json | FAIL | FAIL | PASS | - |
-| 84 | data/arc-agi-2-training/1be83260.json | FAIL | FAIL | FAIL | - |
-| 85 | data/arc-agi-2-training/1be83260.json | FAIL | FAIL | FAIL | - |
-| 86 | data/arc-agi-2-training/1bfc4729.json | PASS | - | - | - |
-| 87 | data/arc-agi-2-training/1c02dbbe.json | FAIL | FAIL | FAIL | - |
-| 88 | data/arc-agi-2-training/1c0d0a4b.json | FAIL | FAIL | - | - |
-| 89 | data/arc-agi-2-training/1c56ad9f.json | FAIL | PASS | - | - |
-| 90 | data/arc-agi-2-training/1c786137.json | FAIL | PASS | - | - |
-| 91 | data/arc-agi-2-training/1caeab9d.json | FAIL | FAIL | FAIL | - |
-| 92 | data/arc-agi-2-training/1cf80156.json | FAIL | PASS | - | - |
-| 93 | data/arc-agi-2-training/1d0a4b61.json | PASS | - | - | - |
-| 94 | data/arc-agi-2-training/1d398264.json | FAIL | PASS | PASS | - |
-| 95 | data/arc-agi-2-training/1d398264.json | FAIL | FAIL | PASS | - |
-| 96 | data/arc-agi-2-training/1d61978c.json | FAIL | FAIL | PASS | - |
-| 97 | data/arc-agi-2-training/1da012fc.json | FAIL | FAIL | PASS | - |
-| 98 | data/arc-agi-2-training/1e0a9b12.json | FAIL | PASS | - | - |
-| 99 | data/arc-agi-2-training/1e32b0e9.json | FAIL | FAIL | FAIL | - |
-| 100 | data/arc-agi-2-training/1e5d6875.json | FAIL | FAIL | FAIL | - |
+| # | Task | Test | Reasoning=None | Reasoning=Low | Reasoning=Medium | Reasoning=High |
+| --- | ------ | ------ | ----------------- | ---------------- | ------------------ | ---------------- |
+| 1 | data/arc-agi-2-training/00576224.json | 1 | PASS | - | - | - |
+| 2 | data/arc-agi-2-training/007bbfb7.json | 1 | FAIL | PASS | - | - |
+| 3 | data/arc-agi-2-training/009d5c81.json | 1 | FAIL | PASS | - | - |
+| 4 | data/arc-agi-2-training/00d62c1b.json | 1 | FAIL | FAIL | FAIL | - |
+| 5 | data/arc-agi-2-training/00dbd492.json | 1 | FAIL | FAIL | PASS | - |
+| 6 | data/arc-agi-2-training/017c7c7b.json | 1 | PASS | - | - | - |
+| 7 | data/arc-agi-2-training/025d127b.json | 1 | PASS | - | - | - |
+| 8 | data/arc-agi-2-training/03560426.json | 1 | FAIL | PASS | - | - |
+| 9 | data/arc-agi-2-training/045e512c.json | 1 | FAIL | FAIL | FAIL | - |
+| 10 | data/arc-agi-2-training/0520fde7.json | 1 | FAIL | PASS | - | - |
+| 11 | data/arc-agi-2-training/05269061.json | 1 | FAIL | FAIL | PASS | - |
+| 12 | data/arc-agi-2-training/05a7bcf2.json | 1 | FAIL | FAIL | FAIL | - |
+| 13 | data/arc-agi-2-training/05f2a901.json | 1 | FAIL | PASS | - | - |
+| 14 | data/arc-agi-2-training/0607ce86.json | 1 | FAIL | FAIL | FAIL | - |
+| 15 | data/arc-agi-2-training/0692e18c.json | 1 | FAIL | PASS | - | - |
+| 16 | data/arc-agi-2-training/06df4c85.json | 1 | FAIL | FAIL | PASS | - |
+| 17 | data/arc-agi-2-training/070dd51e.json | 1 | FAIL | PASS | - | - |
+| 18 | data/arc-agi-2-training/08ed6ac7.json | 1 | PASS | - | - | - |
+| 19 | data/arc-agi-2-training/09629e4f.json | 1 | FAIL | FAIL | FAIL | - |
+| 20 | data/arc-agi-2-training/0962bcdd.json | 1 | FAIL | PASS | - | - |
+| 21 | data/arc-agi-2-training/09c534e7.json | 1 | FAIL | FAIL | FAIL | - |
+| 22 | data/arc-agi-2-training/0a1d4ef5.json | 1 | FAIL | FAIL | FAIL | - |
+| 23 | data/arc-agi-2-training/0a2355a6.json | 1 | FAIL | FAIL | PASS | - |
+| 24 | data/arc-agi-2-training/0a938d79.json | 1 | FAIL | PASS | - | - |
+| 25 | data/arc-agi-2-training/0b148d64.json | 1 | FAIL | FAIL | FAIL | - |
+| 26 | data/arc-agi-2-training/0b17323b.json | 1 | FAIL | PASS | - | - |
+| 27 | data/arc-agi-2-training/0bb8deee.json | 1 | FAIL | PASS | - | - |
+| 28 | data/arc-agi-2-training/0becf7df.json | 1 | FAIL | PASS | - | - |
+| 29 | data/arc-agi-2-training/0c786b71.json | 1 | FAIL | PASS | - | - |
+| 30 | data/arc-agi-2-training/0c9aba6e.json | 1 | FAIL | PASS | - | - |
+| 31 | data/arc-agi-2-training/0ca9ddb6.json | 1 | FAIL | PASS | - | - |
+| 32 | data/arc-agi-2-training/0d3d703e.json | 1 | PASS | - | - | - |
+| 33 | data/arc-agi-2-training/0d87d2a6.json | 1 | FAIL | FAIL | FAIL | - |
+| 34 | data/arc-agi-2-training/0e206a2e.json | 1 | FAIL | FAIL | FAIL | - |
+| 35 | data/arc-agi-2-training/0e671a1a.json | 1 | FAIL | FAIL | PASS | - |
+| 36 | data/arc-agi-2-training/0f63c0b9.json | 1 | FAIL | FAIL | PASS | - |
+| 37 | data/arc-agi-2-training/103eff5b.json | 1 | FAIL | FAIL | PASS | - |
+| 38 | data/arc-agi-2-training/10fcaaa3.json | 1 | FAIL | FAIL | FAIL | - |
+| 39 | data/arc-agi-2-training/11852cab.json | 1 | FAIL | FAIL | PASS | - |
+| 40 | data/arc-agi-2-training/1190bc91.json | 1 | FAIL | FAIL | FAIL | - |
+| 41 | data/arc-agi-2-training/1190e5a7.json | 1 | FAIL | PASS | - | - |
+| 42 | data/arc-agi-2-training/11dc524f.json | 1 | FAIL | FAIL | FAIL | - |
+| 43 | data/arc-agi-2-training/11e1fe23.json | 1 | FAIL | PASS | - | - |
+| 44 | data/arc-agi-2-training/12422b43.json | 1 | FAIL | PASS | - | - |
+| 45 | data/arc-agi-2-training/12997ef3.json | 1 | FAIL | PASS | PASS | - |
+| 46 | data/arc-agi-2-training/12997ef3.json | 2 | FAIL | FAIL | PASS | - |
+| 47 | data/arc-agi-2-training/12eac192.json | 1 | FAIL | FAIL | PASS | - |
+| 48 | data/arc-agi-2-training/13713586.json | 1 | FAIL | FAIL | PASS | - |
+| 49 | data/arc-agi-2-training/137eaa0f.json | 1 | FAIL | FAIL | FAIL | - |
+| 50 | data/arc-agi-2-training/137f0df0.json | 1 | FAIL | PASS | - | - |
+| 51 | data/arc-agi-2-training/13f06aa5.json | 1 | FAIL | FAIL | PASS | - |
+| 52 | data/arc-agi-2-training/140c817e.json | 1 | FAIL | PASS | - | - |
+| 53 | data/arc-agi-2-training/14754a24.json | 1 | FAIL | FAIL | FAIL | - |
+| 54 | data/arc-agi-2-training/1478ab18.json | 1 | FAIL | FAIL | PASS | - |
+| 55 | data/arc-agi-2-training/14b8e18c.json | 1 | FAIL | FAIL | PASS | - |
+| 56 | data/arc-agi-2-training/150deff5.json | 1 | FAIL | FAIL | FAIL | - |
+| 57 | data/arc-agi-2-training/15113be4.json | 1 | FAIL | FAIL | FAIL | - |
+| 58 | data/arc-agi-2-training/15660dd6.json | 1 | FAIL | FAIL | PASS | - |
+| 59 | data/arc-agi-2-training/15663ba9.json | 1 | FAIL | FAIL | FAIL | - |
+| 60 | data/arc-agi-2-training/15696249.json | 1 | FAIL | PASS | - | - |
+| 61 | data/arc-agi-2-training/17829a00.json | 1 | FAIL | FAIL | FAIL | - |
+| 62 | data/arc-agi-2-training/178fcbfb.json | 1 | FAIL | PASS | - | - |
+| 63 | data/arc-agi-2-training/17b80ad2.json | 1 | FAIL | FAIL | PASS | - |
+| 64 | data/arc-agi-2-training/17b866bd.json | 1 | FAIL | FAIL | FAIL | - |
+| 65 | data/arc-agi-2-training/17b866bd.json | 2 | FAIL | FAIL | PASS | - |
+| 66 | data/arc-agi-2-training/17cae0c1.json | 1 | FAIL | PASS | - | - |
+| 67 | data/arc-agi-2-training/18286ef8.json | 1 | FAIL | PASS | - | - |
+| 68 | data/arc-agi-2-training/182e5d0f.json | 1 | FAIL | FAIL | FAIL | - |
+| 69 | data/arc-agi-2-training/18419cfa.json | 1 | FAIL | FAIL | FAIL | - |
+| 70 | data/arc-agi-2-training/18447a8d.json | 1 | FAIL | FAIL | FAIL | - |
+| 71 | data/arc-agi-2-training/184a9768.json | 1 | FAIL | FAIL | FAIL | - |
+| 72 | data/arc-agi-2-training/195ba7dc.json | 1 | FAIL | PASS | - | - |
+| 73 | data/arc-agi-2-training/1990f7a8.json | 1 | FAIL | FAIL | FAIL | - |
+| 74 | data/arc-agi-2-training/19bb5feb.json | 1 | PASS | - | - | - |
+| 75 | data/arc-agi-2-training/1a07d186.json | 1 | FAIL | PASS | - | - |
+| 76 | data/arc-agi-2-training/1a244afd.json | 1 | FAIL | FAIL | FAIL | - |
+| 77 | data/arc-agi-2-training/1a2e2828.json | 1 | PASS | - | - | - |
+| 78 | data/arc-agi-2-training/1a6449f1.json | 1 | FAIL | FAIL | FAIL | - |
+| 79 | data/arc-agi-2-training/1acc24af.json | 1 | FAIL | FAIL | FAIL | - |
+| 80 | data/arc-agi-2-training/1b2d62fb.json | 1 | FAIL | PASS | - | - |
+| 81 | data/arc-agi-2-training/1b59e163.json | 1 | FAIL | FAIL | PASS | - |
+| 82 | data/arc-agi-2-training/1b60fb0c.json | 1 | FAIL | FAIL | FAIL | - |
+| 83 | data/arc-agi-2-training/1b8318e3.json | 1 | FAIL | FAIL | PASS | - |
+| 84 | data/arc-agi-2-training/1be83260.json | 1 | FAIL | FAIL | FAIL | - |
+| 85 | data/arc-agi-2-training/1be83260.json | 2 | FAIL | FAIL | FAIL | - |
+| 86 | data/arc-agi-2-training/1bfc4729.json | 1 | PASS | - | - | - |
+| 87 | data/arc-agi-2-training/1c02dbbe.json | 1 | FAIL | FAIL | FAIL | - |
+| 88 | data/arc-agi-2-training/1c0d0a4b.json | 1 | FAIL | FAIL | - | - |
+| 89 | data/arc-agi-2-training/1c56ad9f.json | 1 | FAIL | PASS | - | - |
+| 90 | data/arc-agi-2-training/1c786137.json | 1 | FAIL | PASS | - | - |
+| 91 | data/arc-agi-2-training/1caeab9d.json | 1 | FAIL | FAIL | FAIL | - |
+| 92 | data/arc-agi-2-training/1cf80156.json | 1 | FAIL | PASS | - | - |
+| 93 | data/arc-agi-2-training/1d0a4b61.json | 1 | PASS | - | - | - |
+| 94 | data/arc-agi-2-training/1d398264.json | 1 | FAIL | PASS | PASS | - |
+| 95 | data/arc-agi-2-training/1d398264.json | 2 | FAIL | FAIL | PASS | - |
+| 96 | data/arc-agi-2-training/1d61978c.json | 1 | FAIL | FAIL | PASS | - |
+| 97 | data/arc-agi-2-training/1da012fc.json | 1 | FAIL | FAIL | PASS | - |
+| 98 | data/arc-agi-2-training/1e0a9b12.json | 1 | FAIL | PASS | - | - |
+| 99 | data/arc-agi-2-training/1e32b0e9.json | 1 | FAIL | FAIL | FAIL | - |
+| 100 | data/arc-agi-2-training/1e5d6875.json | 1 | FAIL | FAIL | FAIL | - |
