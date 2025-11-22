@@ -46,7 +46,7 @@ def get_column_name(model_arg: str) -> str:
 
 
 TABLE_COLUMNS = [get_column_name(m) for m in ORDERED_MODELS]
-ResultRecord = Tuple[Path, int, bool, str, float, float]
+ResultRecord = Tuple[Path, int, bool, str]
 
 
 def parse_model_arg(model_arg: str) -> Tuple[str, str, object]:
@@ -313,42 +313,20 @@ def solve_task(
     for idx, test_example in enumerate(task.test, start=1):
         prompt = build_prompt(task.train, test_example)
         success = False
-        duration = 0.0
-        cost = 0.0
         try:
-            start_time = time.perf_counter()
             model_response = call_model(
                 openai_client, anthropic_client, prompt, model_arg
             )
-            duration = time.perf_counter() - start_time
-
-            _, base_model, _ = parse_model_arg(model_arg)
-            pricing = PRICING_PER_1M_TOKENS.get(
-                base_model, {"input": 0, "cached_input": 0, "output": 0}
-            )
-            non_cached_input = max(
-                0, model_response.prompt_tokens - model_response.cached_tokens
-            )
-            cost = (
-                (non_cached_input / 1_000_000 * pricing["input"])
-                + (
-                    model_response.cached_tokens
-                    / 1_000_000
-                    * pricing.get("cached_input", 0)
-                )
-                + (model_response.completion_tokens / 1_000_000 * pricing["output"])
-            )
-
             predicted_grid = parse_grid_from_text(model_response.text)
             success = verify_prediction(predicted_grid, test_example.output)
         except Exception as exc:
             print(f"Task {task_path} test {idx} failed: {exc}", file=sys.stderr)
-        outcomes.append((task_path, idx, success, model_arg, duration, cost))
+        outcomes.append((task_path, idx, success, model_arg))
     return outcomes
 
 
 def print_table_header() -> None:
-    columns = ["#", "Task", "Test"] + TABLE_COLUMNS + ["Time (s)", "Cost ($)"]
+    columns = ["#", "Task", "Test"] + TABLE_COLUMNS
     print("| " + " | ".join(columns) + " |")
     print("| " + " | ".join(["---"] * len(columns)) + " |")
 
@@ -359,10 +337,14 @@ def print_result_row(
     test_idx: int,
     success: bool,
     model_arg: str,
-    duration: float,
-    cost: float,
 ) -> None:
-    column_key = get_column_name(model_arg)
+    _, _, config = parse_model_arg(model_arg)
+    if isinstance(config, str):
+        column_key = f"Reasoning={config.capitalize()}"
+    elif config is None or config == 0:
+        column_key = "Reasoning=No-Thinking"
+    else:
+        column_key = f"Reasoning=Thinking-{config}"
 
     if column_key not in TABLE_COLUMNS:
         print(
@@ -372,11 +354,9 @@ def print_result_row(
         return
     values = {column: "-" for column in TABLE_COLUMNS}
     values[column_key] = "PASS" if success else "FAIL"
-    row = (
-        [str(row_idx), str(task_path), str(test_idx)]
-        + [values[col] for col in TABLE_COLUMNS]
-        + [f"{duration:.2f}", f"{cost:.2f}"]
-    )
+    row = [str(row_idx), str(task_path), str(test_idx)] + [
+        values[col] for col in TABLE_COLUMNS
+    ]
     print("| " + " | ".join(row) + " |")
 
 
