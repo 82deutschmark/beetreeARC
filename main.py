@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Tuple
@@ -12,7 +13,8 @@ from openai import OpenAI
 Grid = List[List[int]]
 MODEL_NAME = "gpt-5.1"
 SUPPORTED_REASONING = {"none", "low", "medium", "high"}
-ResultRecord = Tuple[Path, int, bool]
+TABLE_COLUMNS = ["Reasoning=None", "Reasoning=Low"]
+ResultRecord = Tuple[Path, int, bool, str]
 
 
 @dataclass
@@ -145,53 +147,37 @@ def solve_task(
     client: OpenAI,
     task_path: Path,
     reasoning_effort: str,
-    results: List[ResultRecord],
-) -> None:
+) -> List[ResultRecord]:
     task = load_task(task_path)
+    outcomes: List[ResultRecord] = []
     for idx, test_example in enumerate(task.test, start=1):
-        print(f"\n[{task_path}] Solving test case {idx} with OpenAI...")
         prompt = build_prompt(task.train, test_example)
-        # print("Prompt sent to OpenAI:")
-        # print(prompt)
-        # print("--- End prompt ---")
+        success = False
         try:
             response_text = call_openai(client, prompt, reasoning_effort)
-        except ValueError as exc:
-            print(f"Skipping task {task_path}: {exc}")
-            return
-        print("Model output:")
-        print(response_text)
-        try:
             predicted_grid = parse_grid_from_text(response_text)
-        except ValueError as exc:
-            print(f"Failed to parse model output: {exc}")
-            results.append((task_path, idx, False))
-            continue
-
-        if verify_prediction(predicted_grid, test_example.output):
-            print("Result: PASS ✅")
-            results.append((task_path, idx, True))
-        else:
-            print("Result: FAIL ❌")
-            print("Predicted grid:")
-            print(format_grid(predicted_grid))
-            print("Expected grid:")
-            print(format_grid(test_example.output))
-            results.append((task_path, idx, False))
+            success = verify_prediction(predicted_grid, test_example.output)
+        except Exception as exc:
+            print(f"Task {task_path} test {idx} failed: {exc}", file=sys.stderr)
+        outcomes.append((task_path, idx, success, reasoning_effort))
+    return outcomes
 
 
-def print_summary(results: List[ResultRecord]) -> None:
-    if not results:
-        print("\nNo test cases were executed.")
+def print_table_header() -> None:
+    columns = ["#", "Task", "Test"] + TABLE_COLUMNS
+    print("| " + " | ".join(columns) + " |")
+    print("| " + " | ".join(["---"] * len(columns)) + " |")
+
+
+def print_result_row(row_idx: int, task_path: Path, test_idx: int, success: bool, reasoning: str) -> None:
+    column_key = f"Reasoning={reasoning.capitalize()}"
+    if column_key not in TABLE_COLUMNS:
+        print(f"Unsupported reasoning column {column_key}. Update TABLE_COLUMNS to include it.", file=sys.stderr)
         return
-
-    print("\nSummary:")
-    header = f"{'Task':60} {'Test':>4} {'Result':>6}"
-    print(header)
-    print("-" * len(header))
-    for path, idx, success in results:
-        result_str = "PASS" if success else "FAIL"
-        print(f"{str(path):60} {idx:>4} {result_str:>6}")
+    values = {column: "-" for column in TABLE_COLUMNS}
+    values[column_key] = "PASS" if success else "FAIL"
+    row = [str(row_idx), str(task_path), str(test_idx)] + [values[col] for col in TABLE_COLUMNS]
+    print("| " + " | ".join(row) + " |")
 
 
 def main() -> None:
@@ -203,16 +189,18 @@ def main() -> None:
 
     client = OpenAI(api_key=api_key)
 
-    results: List[ResultRecord] = []
     try:
         task_paths = load_task_paths(args.task_list)
     except ValueError as exc:
         raise RuntimeError(f"Failed to read task list {args.task_list}: {exc}") from exc
 
+    print_table_header()
+    row_counter = 0
     for path in task_paths:
-        solve_task(client, path, args.reasoning, results)
-
-    print_summary(results)
+        task_results = solve_task(client, path, args.reasoning)
+        for record in task_results:
+            row_counter += 1
+            print_result_row(row_counter, *record)
 
 
 if __name__ == "__main__":

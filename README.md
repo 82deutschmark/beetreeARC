@@ -22,6 +22,8 @@ The `.venv/` directory is ignored by Git, so every contributor can maintain thei
 
 `main.py` accepts a JSON file containing a list of ARC task file paths (e.g., `data/first_100.json`). It loads each puzzle, packages the training examples plus each test input into an OpenAI prompt, requests a completion from `gpt-5.1`, and parses the returned grid. The predicted grid is compared against the ground-truth test output from the JSON file, and the script prints PASS/FAIL for each test case plus a summary table at the end. Use `--reasoning` to select the effort level (supported by `gpt-5.1`: `none`, `low`, `medium`, or `high`). Ensure `OPENAI_API_KEY` is exported (see example commands above) before running it; otherwise the script will exit with an error.
 
+While running, stdout is limited to a streaming Markdown table with one row per test case. Copy the rows into `Results.md` (or another document) if you want to persist the results after the run.
+
 An example task list (`data/first_100.json`) looks like:
 
 ```json
