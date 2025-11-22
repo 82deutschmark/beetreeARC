@@ -1,2 +1,3 @@
 # Python dependencies for ARC-AGI
 openai>=1.35.7
+anthropic>=0.3.0

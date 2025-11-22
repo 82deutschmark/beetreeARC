@@ -11,15 +11,66 @@ from pathlib import Path
 from typing import Iterable, List, Tuple
 
 from openai import OpenAI
+from anthropic import Anthropic
 
 Grid = List[List[int]]
-MODEL_NAME = "gpt-5.1"
 PRICING_PER_1M_TOKENS = {
     "gpt-5.1": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
+    "claude-sonnet-4-5-20250929": {
+        "input": 3.00,
+        "cached_input": 0.30,
+        "output": 15.00,
+    },
 }
-SUPPORTED_REASONING = {"none", "low", "medium", "high"}
-TABLE_COLUMNS = ["Reasoning=None", "Reasoning=Low", "Reasoning=Medium", "Reasoning=High"]
+SUPPORTED_MODELS = {
+    "gpt-5.1-none",
+    "gpt-5.1-low",
+    "gpt-5.1-medium",
+    "gpt-5.1-high",
+    "claude-sonnet-4.5-no-thinking",
+    "claude-sonnet-4.5-thinking-1000",
+    "claude-sonnet-4.5-thinking-4000",
+    "claude-sonnet-4.5-thinking-16000",
+    "claude-sonnet-4.5-thinking-64000",
+}
+TABLE_COLUMNS = [
+    "Reasoning=None",
+    "Reasoning=Low",
+    "Reasoning=Medium",
+    "Reasoning=High",
+    "Reasoning=No-Thinking",
+    "Reasoning=Thinking-1000",
+    "Reasoning=Thinking-4000",
+    "Reasoning=Thinking-16000",
+    "Reasoning=Thinking-64000",
+]
 ResultRecord = Tuple[Path, int, bool, str, float, float]
+
+
+def parse_model_arg(model_arg: str) -> Tuple[str, str, object]:
+    if model_arg not in SUPPORTED_MODELS:
+        raise ValueError(f"Model '{model_arg}' not supported. Choose from {SUPPORTED_MODELS}")
+
+    if model_arg.startswith("gpt-5.1-"):
+        parts = model_arg.split("-")
+        effort = parts[-1]
+        base = "-".join(parts[:-1])
+        return "openai", base, effort
+
+    if model_arg.startswith("claude-sonnet-4.5-"):
+        base = "claude-sonnet-4-5-20250929"
+        suffix = model_arg.replace("claude-sonnet-4.5-", "")
+        if suffix == "no-thinking":
+            return "anthropic", base, 0
+        if suffix.startswith("thinking-"):
+            try:
+                budget = int(suffix.split("-")[1])
+                return "anthropic", base, budget
+            except (IndexError, ValueError):
+                pass
+
+    raise ValueError(f"Unknown model format: {model_arg}")
+
 
 
 @dataclass
@@ -51,10 +102,10 @@ def parse_args() -> argparse.Namespace:
         help="JSON file containing a list of task paths (e.g. data/first_100.json).",
     )
     parser.add_argument(
-        "--reasoning",
-        choices=sorted(SUPPORTED_REASONING),
-        default="none",
-        help="Reasoning effort for OpenAI (supported: none, low, medium, high).",
+        "--model",
+        choices=sorted(SUPPORTED_MODELS),
+        default="gpt-5.1-none",
+        help="Model to use (e.g. gpt-5.1-none, gpt-5.1-low).",
     )
     parser.add_argument(
         "--workers",
@@ -116,18 +167,10 @@ def build_prompt(train_examples: List[Example], test_example: Example) -> str:
     return "\n".join(lines)
 
 
-def ensure_reasoning_supported(model: str, reasoning_effort: str) -> None:
-    if reasoning_effort not in SUPPORTED_REASONING:
-        supported_list = ", ".join(sorted(SUPPORTED_REASONING))
-        raise ValueError(
-            f"Reasoning effort '{reasoning_effort}' is not supported for {model}. "
-            f"Select one of: {supported_list}."
-        )
-
-
-def call_openai(client: OpenAI, prompt: str, reasoning_effort: str) -> ModelResponse:
-    ensure_reasoning_supported(MODEL_NAME, reasoning_effort)
-    request_kwargs = {"model": MODEL_NAME, "input": prompt}
+def call_openai_internal(
+    client: OpenAI, prompt: str, model: str, reasoning_effort: str
+) -> ModelResponse:
+    request_kwargs = {"model": model, "input": prompt}
     if reasoning_effort != "none":
         request_kwargs["reasoning"] = {"effort": reasoning_effort}
 
@@ -162,6 +205,58 @@ def call_openai(client: OpenAI, prompt: str, reasoning_effort: str) -> ModelResp
     )
 
 
+def call_anthropic(
+    client: Anthropic, prompt: str, model: str, budget: int
+) -> ModelResponse:
+    kwargs = {
+        "model": model,
+        "max_tokens": 8192,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+
+    if budget and budget > 0:
+        kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
+
+    response = client.messages.create(**kwargs)
+
+    text_parts = []
+    for block in response.content:
+        if getattr(block, "type", None) == "text":
+            text_parts.append(block.text)
+
+    text = "".join(text_parts).strip()
+
+    p_tokens = response.usage.input_tokens
+    c_tokens = response.usage.output_tokens
+    # Check for cache read tokens (Anthropic beta/standard feature location varies, assuming usage.cache_read_input_tokens)
+    cached = getattr(response.usage, "cache_read_input_tokens", 0) or 0
+
+    return ModelResponse(
+        text=text,
+        prompt_tokens=p_tokens,
+        cached_tokens=cached,
+        completion_tokens=c_tokens,
+    )
+
+
+def call_model(
+    openai_client: OpenAI,
+    anthropic_client: Anthropic,
+    prompt: str,
+    model_arg: str,
+) -> ModelResponse:
+    provider, base_model, config = parse_model_arg(model_arg)
+
+    if provider == "openai":
+        return call_openai_internal(openai_client, prompt, base_model, config)
+    elif provider == "anthropic":
+        if not anthropic_client:
+            raise RuntimeError("Anthropic client not initialized.")
+        return call_anthropic(anthropic_client, prompt, base_model, config)
+
+    raise ValueError(f"Unknown provider {provider}")
+
+
 def parse_grid_from_text(raw_text: str) -> Grid:
     rows: Grid = []
     for line in raw_text.strip().splitlines():
@@ -184,9 +279,10 @@ def verify_prediction(predicted: Grid, expected: Grid) -> bool:
 
 
 def solve_task(
-    client: OpenAI,
+    openai_client: OpenAI,
+    anthropic_client: Anthropic,
     task_path: Path,
-    reasoning_effort: str,
+    model_arg: str,
 ) -> List[ResultRecord]:
     task = load_task(task_path)
     outcomes: List[ResultRecord] = []
@@ -197,18 +293,25 @@ def solve_task(
         cost = 0.0
         try:
             start_time = time.perf_counter()
-            model_response = call_openai(client, prompt, reasoning_effort)
+            model_response = call_model(
+                openai_client, anthropic_client, prompt, model_arg
+            )
             duration = time.perf_counter() - start_time
 
+            _, base_model, _ = parse_model_arg(model_arg)
             pricing = PRICING_PER_1M_TOKENS.get(
-                MODEL_NAME, {"input": 0, "cached_input": 0, "output": 0}
+                base_model, {"input": 0, "cached_input": 0, "output": 0}
             )
             non_cached_input = max(
                 0, model_response.prompt_tokens - model_response.cached_tokens
             )
             cost = (
                 (non_cached_input / 1_000_000 * pricing["input"])
-                + (model_response.cached_tokens / 1_000_000 * pricing.get("cached_input", 0))
+                + (
+                    model_response.cached_tokens
+                    / 1_000_000
+                    * pricing.get("cached_input", 0)
+                )
                 + (model_response.completion_tokens / 1_000_000 * pricing["output"])
             )
 
@@ -216,7 +319,7 @@ def solve_task(
             success = verify_prediction(predicted_grid, test_example.output)
         except Exception as exc:
             print(f"Task {task_path} test {idx} failed: {exc}", file=sys.stderr)
-        outcomes.append((task_path, idx, success, reasoning_effort, duration, cost))
+        outcomes.append((task_path, idx, success, model_arg, duration, cost))
     return outcomes
 
 
@@ -231,11 +334,18 @@ def print_result_row(
     task_path: Path,
     test_idx: int,
     success: bool,
-    reasoning: str,
+    model_arg: str,
     duration: float,
     cost: float,
 ) -> None:
-    column_key = f"Reasoning={reasoning.capitalize()}"
+    _, _, config = parse_model_arg(model_arg)
+    if isinstance(config, str):
+        column_key = f"Reasoning={config.capitalize()}"
+    elif config is None or config == 0:
+        column_key = "Reasoning=No-Thinking"
+    else:
+        column_key = f"Reasoning=Thinking-{config}"
+
     if column_key not in TABLE_COLUMNS:
         print(
             f"Unsupported reasoning column {column_key}. Update TABLE_COLUMNS to include it.",
@@ -255,11 +365,15 @@ def print_result_row(
 def main() -> None:
     args = parse_args()
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
         raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
+    openai_client = OpenAI(api_key=openai_key)
 
-    client = OpenAI(api_key=api_key)
+    claude_key = os.getenv("CLAUDE_API_KEY")
+    anthropic_client = None
+    if claude_key:
+        anthropic_client = Anthropic(api_key=claude_key)
 
     try:
         task_paths = load_task_paths(args.task_list)
@@ -270,7 +384,9 @@ def main() -> None:
     row_counter = 0
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         future_to_path = {
-            executor.submit(solve_task, client, path, args.reasoning): path
+            executor.submit(
+                solve_task, openai_client, anthropic_client, path, args.model
+            ): path
             for path in task_paths
         }
 
