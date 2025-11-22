@@ -3,7 +3,7 @@
 | 1 | data/arc-agi-2-training/00576224.json | 1 | PASS | - |
 | 2 | data/arc-agi-2-training/007bbfb7.json | 1 | FAIL | PASS |
 | 3 | data/arc-agi-2-training/009d5c81.json | 1 | FAIL | PASS |
-| 4 | data/arc-agi-2-training/00d62c1b.json | 1 | FAIL | - |
+| 4 | data/arc-agi-2-training/00d62c1b.json | 1 | FAIL | FAIL |
 | 5 | data/arc-agi-2-training/00dbd492.json | 1 | FAIL | - |
 | 6 | data/arc-agi-2-training/017c7c7b.json | 1 | PASS | - |
 | 7 | data/arc-agi-2-training/025d127b.json | 1 | PASS | - |
