@@ -221,7 +221,7 @@ def solve_task(
 
 
 def print_table_header() -> None:
-    columns = ["#", "Task", "Test"] + TABLE_COLUMNS + ["Time (s)", "Cost ($)"]
+    columns = ["#", "Task"] + TABLE_COLUMNS + ["Time (s)", "Cost ($)"]
     print("| " + " | ".join(columns) + " |")
     print("| " + " | ".join(["---"] * len(columns)) + " |")
 
@@ -245,7 +245,7 @@ def print_result_row(
     values = {column: "-" for column in TABLE_COLUMNS}
     values[column_key] = "PASS" if success else "FAIL"
     row = (
-        [str(row_idx), str(task_path), str(test_idx)]
+        [str(row_idx), str(task_path)]
         + [values[col] for col in TABLE_COLUMNS]
         + [f"{duration:.2f}", f"{cost:.4f}"]
     )
