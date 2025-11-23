@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import json
+import requests
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Tuple, Optional
@@ -84,7 +86,25 @@ def call_openai_internal(
     if reasoning_effort != "none":
         request_kwargs["reasoning"] = {"effort": reasoning_effort}
 
-    response = client.responses.create(**request_kwargs)
+    response = None
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.responses.create(**request_kwargs)
+            break
+        except Exception as e:
+            err_str = str(e)
+            if (
+                "Connection error" in err_str
+                or "500" in err_str
+                or "server_error" in err_str
+            ):
+                if attempt < max_retries - 1:
+                    delay = 5 if attempt == 0 else 30
+                    time.sleep(delay)
+                    continue
+            raise e
+
     text_output = None
     for item in response.output or []:
         contents = getattr(item, "content", None)
@@ -147,7 +167,12 @@ def call_anthropic(
             break
         except Exception as e:
             err_str = str(e)
-            if "500" in err_str or "Internal server error" in err_str:
+            if (
+                "500" in err_str
+                or "Internal server error" in err_str
+                or "Connection reset" in err_str
+                or "Connection error" in err_str
+            ):
                 if attempt < max_retries - 1:
                     delay = 5 if attempt == 0 else 30
                     time.sleep(delay)
@@ -175,26 +200,37 @@ def call_anthropic(
 def call_gemini(
     client: genai.Client, prompt: str, model: str, thinking_level: str
 ) -> ModelResponse:
-    # Map thinking_level to thinking_budget since SDK 1.47.0 lacks thinking_level
-    budget = 2048
-    if thinking_level == "high":
-        budget = 16384
+    # Use REST API to bypass SDK limitation regarding thinking_level
+    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Google API Key not found in environment")
 
-    config = types.GenerateContentConfig(
-        thinking_config=types.ThinkingConfig(include_thoughts=True, thinking_budget=budget),
-        temperature=0.7,
-        max_output_tokens=65536,
-    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+    level_enum = "LOW" if thinking_level == "low" else "HIGH"
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 1.0,  # Recommended for thinking models
+            "maxOutputTokens": 65536,
+            "thinkingConfig": {"includeThoughts": True, "thinkingLevel": level_enum},
+        },
+    }
 
     response = None
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=config,
+            resp = requests.post(
+                url, json=payload, headers={"Content-Type": "application/json"}
             )
+            if resp.status_code != 200:
+                if resp.status_code == 503 or "503" in resp.text:
+                    raise Exception(f"503 Unavailable: {resp.text}")
+                raise Exception(f"API Error {resp.status_code}: {resp.text}")
+
+            response = resp.json()
             break
         except Exception as e:
             err_str = str(e)
@@ -208,19 +244,25 @@ def call_gemini(
                     time.sleep(delay)
                     continue
             raise e
-    
-    text_parts = []
-    if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
-        for part in response.candidates[0].content.parts:
-            if part.text:
-                text_parts.append(part.text)
-    text = "".join(text_parts).strip()
 
-    usage = getattr(response, "usage_metadata", None)
-    p_tokens = usage.prompt_token_count if usage else 0
-    c_tokens = usage.candidates_token_count if usage else 0
-    thoughts = getattr(usage, "thoughts_token_count", 0) or 0
-    c_tokens += thoughts
+    try:
+        candidate = response["candidates"][0]
+        parts = candidate["content"]["parts"]
+        # Filter for text parts (ignore thought parts if they are separate/identifiable, or join all)
+        # Assuming text parts are the final answer.
+        # The API might return thoughts as parts too.
+        # I'll extract all text.
+        text_parts = [p["text"] for p in parts if "text" in p]
+        text = "".join(text_parts).strip()
+
+        usage = response.get("usageMetadata", {})
+        p_tokens = usage.get("promptTokenCount", 0)
+        c_tokens = usage.get("candidatesTokenCount", 0)
+        thoughts = usage.get("thoughtsTokenCount", 0)
+        c_tokens += thoughts
+
+    except (KeyError, IndexError) as e:
+        raise RuntimeError(f"Failed to parse Gemini response: {e} - Raw: {response}")
 
     return ModelResponse(
         text=text,
