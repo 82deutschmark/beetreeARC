@@ -98,6 +98,7 @@ def call_openai_internal(
                 "Connection error" in err_str
                 or "500" in err_str
                 or "server_error" in err_str
+                or "upstream connect error" in err_str
             ):
                 if attempt < max_retries - 1:
                     delay = 5 if attempt == 0 else 30
