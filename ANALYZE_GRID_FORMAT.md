@@ -1,0 +1,77 @@
+# Grid Format Analysis
+
+This document describes the 9 supported grid representation formats used in prompt engineering.
+
+## 1. Standard
+The default format. Rows are separated by newlines, and cells within a row are separated by spaces.
+**Example:**
+```text
+0 1 2
+3 4 5
+```
+
+## 2. Semicolon
+Compact single-line representation. Rows are separated by semicolons `;`.
+**Example:**
+```text
+0 1 2; 3 4 5
+```
+
+## 3. XML
+XML-style tags wrapping each row.
+**Example:**
+```xml
+<row>0 1 2</row>
+<row>3 4 5</row>
+```
+
+## 4. CSV
+Comma-Separated Values. Standard CSV format.
+**Example:**
+```text
+0,1,2
+3,4,5
+```
+
+## 5. Python
+Standard Python list of lists syntax.
+**Example:**
+```python
+[[0, 1, 2], [3, 4, 5]]
+```
+
+## 6. Sparse
+List of coordinates and values for non-zero cells. Format: `(row,col):value`.
+**Example:**
+```text
+(0,1):1, (0,2):2, (1,0):3, (1,1):4, (1,2):5
+```
+
+## 7. ASCII
+Visual representation mapping integers 0-9 to symbols.
+Mapping: `0: ., 1: #, 2: x, 3: o, 4: +, 5: *, 6: =, 7: @, 8: %, 9: &`
+**Example:**
+```text
+.#x
+o+*
+```
+
+## 8. Mask
+Decomposed binary masks for each color present in the grid.
+**Example:**
+```text
+Color 1:
+0 1 0
+0 0 0
+
+Color 2:
+0 0 1
+0 0 0
+```
+
+## 9. Compact
+Dense representation. Rows are concatenated strings of digits, separated by `|`.
+**Example:**
+```text
+012|345
+```

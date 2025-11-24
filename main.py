@@ -23,7 +23,7 @@ from src.models import (
     ORDERED_MODELS,
 )
 from src.tasks import load_task, load_task_paths, build_prompt
-from src.utils import parse_grid_from_text, verify_prediction
+from src.utils import parse_grid_from_text, verify_prediction, GridFormat
 
 def get_column_name(model_arg: str) -> str:
     parts = model_arg.split("-")
@@ -53,6 +53,13 @@ def parse_args() -> argparse.Namespace:
         default=20,
         help="Number of parallel worker threads (default: 20).",
     )
+    parser.add_argument(
+        "--grid-format",
+        type=str,
+        default="standard",
+        choices=[f.value for f in GridFormat],
+        help="Format for grid representation.",
+    )
     return parser.parse_args()
 
 def solve_task(
@@ -61,11 +68,13 @@ def solve_task(
     google_client: genai.Client,
     task_path: Path,
     model_arg: str,
+    grid_format_str: str,
 ) -> List[ResultRecord]:
+    grid_format = GridFormat(grid_format_str)
     task = load_task(task_path)
     outcomes: List[ResultRecord] = []
     for idx, test_example in enumerate(task.test, start=1):
-        prompt = build_prompt(task.train, test_example)
+        prompt = build_prompt(task.train, test_example, grid_format=grid_format)
         success = False
         duration = 0.0
         cost = 0.0
@@ -101,7 +110,7 @@ def solve_task(
                 + (model_response.completion_tokens / 1_000_000 * pricing["output"])
             )
 
-            predicted_grid = parse_grid_from_text(model_response.text)
+            predicted_grid = parse_grid_from_text(model_response.text, fmt=grid_format)
             success = verify_prediction(predicted_grid, test_example.output)
         except Exception as exc:
             print(f"Task {task_path} test {idx} failed: {exc}", file=sys.stderr)
@@ -174,6 +183,7 @@ def main() -> None:
                 google_client,
                 path,
                 args.model,
+                args.grid_format,
             ): path
             for path in task_paths
         }

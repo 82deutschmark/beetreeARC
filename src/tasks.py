@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Iterable
 
-from src.utils import Grid, format_grid
+from src.utils import Grid, format_grid, GridFormat
 
 @dataclass
 class Example:
@@ -38,7 +38,7 @@ def load_task_paths(list_path: Path) -> List[Path]:
         result.append(Path(item))
     return result
 
-def build_prompt(train_examples: List[Example], test_example: Example) -> str:
+def build_prompt(train_examples: List[Example], test_example: Example, grid_format: GridFormat = GridFormat.STANDARD) -> str:
     lines = [
         "You are solving an ARC (Abstraction and Reasoning Corpus) task.",
         "Each grid cell is an integer 0-9 representing a color.",
@@ -49,12 +49,12 @@ def build_prompt(train_examples: List[Example], test_example: Example) -> str:
     for idx, ex in enumerate(train_examples, start=1):
         lines.append(f"Example {idx}:")
         lines.append("input:")
-        lines.append(format_grid(ex.input))
+        lines.append(format_grid(ex.input, fmt=grid_format))
         lines.append("output:")
-        lines.append(format_grid(ex.output))
+        lines.append(format_grid(ex.output, fmt=grid_format))
         lines.append("")
     lines.append("Test input:")
-    lines.append(format_grid(test_example.input))
+    lines.append(format_grid(test_example.input, fmt=grid_format))
     lines.append("")
-    lines.append("Respond with ONLY the completed output grid, with rows of integers separated by single spaces.")
+    lines.append("Respond with ONLY the completed output grid.")
     return "\n".join(lines)
