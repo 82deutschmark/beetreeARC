@@ -79,20 +79,16 @@ Dense representation. Rows are concatenated strings of digits, separated by `|`.
 
 ## Benchmark Results
 Model: gpt-5.1-none
-Dataset: first_100 (104 tests)
+Dataset: first_100
 
-| Format | Pass Rate | Solved | Unique Solves |
-|---|---|---|---|
-| Standard | 9.62% | 10/104 | 1 |
-| Semicolon | 9.62% | 10/104 | 0 |
-| Xml | 6.73% | 7/104 | 1 |
-| Csv | 6.73% | 7/104 | 1 |
-| Python | 9.62% | 10/104 | 0 |
-| Sparse | 8.65% | 9/104 | 0 |
-| Ascii | 7.69% | 8/104 | 0 |
-| Mask | 2.88% | 3/104 | 0 |
-| Compact | 4.81% | 5/104 | 1 |
-
-### Analysis
-- **Best Format:** standard (10 solved)
-- **Combined Solved:** 15 (Union of all formats)
+| Format | Solved Test 1 | Solved Test 2 |
+|---|---|---|
+| Standard | 10/104 | 8/104 |
+| Semicolon | 10/104 | 9/104 |
+| Xml | 7/104 | 8/104 |
+| Csv | 7/104 | 11/104 |
+| Python | 10/104 | 10/104 |
+| Sparse | 9/104 | 6/104 |
+| Ascii | 8/104 | 6/104 |
+| Mask | 3/104 | - |
+| Compact | 5/104 | - |

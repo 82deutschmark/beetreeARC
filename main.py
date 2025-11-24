@@ -225,7 +225,7 @@ def main() -> None:
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         dataset_name = args.task_list.stem
-        log_filename = f"{timestamp}_{args.model}_{dataset_name}.json"
+        log_filename = f"{timestamp}_{args.model}_{args.grid_format}_{dataset_name}.json"
         log_path = log_dir / log_filename
 
         log_data = []
