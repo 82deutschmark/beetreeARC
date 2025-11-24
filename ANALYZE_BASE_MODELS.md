@@ -1,6 +1,7 @@
 
 # Venn diagram between the strongest models
-![Uploading Code_Generated_Image.png…]()
+<img width="1000" height="1000" alt="Code_Generated_Image" src="https://github.com/user-attachments/assets/4c1ec9d3-e486-496a-9d8e-913649a14a77" />
+
 
 
 # Full comparison table
