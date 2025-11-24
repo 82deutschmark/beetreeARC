@@ -93,6 +93,13 @@ Dataset: first_100
 | Mask | 8/104 | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | Compact | 5/104 | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 
+Best format (17 tests): CSV
+- Effect size: ≈ 1–1.2 extra solved tasks per 100 compared to Standard and Python.
+- Confidence levels (approx):
+  - CSV > Standard: ~90%
+  - CSV > Python: ~87%
+  - CSV best among all three: ~81%
+
 ## Sparse Problems Analysis
 Pass rates for specific sparse problems across formats (Logs since 11:48:37).
 
