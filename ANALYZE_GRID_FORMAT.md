@@ -75,3 +75,24 @@ Dense representation. Rows are concatenated strings of digits, separated by `|`.
 ```text
 012|345
 ```
+
+
+## Benchmark Results
+Model: gpt-5.1-none
+Dataset: first_100 (104 tests)
+
+| Format | Pass Rate | Solved | Unique Solves |
+|---|---|---|---|
+| Standard | 9.62% | 10/104 | 1 |
+| Semicolon | 9.62% | 10/104 | 0 |
+| Xml | 6.73% | 7/104 | 1 |
+| Csv | 6.73% | 7/104 | 1 |
+| Python | 9.62% | 10/104 | 0 |
+| Sparse | 8.65% | 9/104 | 0 |
+| Ascii | 7.69% | 8/104 | 0 |
+| Mask | 2.88% | 3/104 | 0 |
+| Compact | 4.81% | 5/104 | 1 |
+
+### Analysis
+- **Best Format:** standard (10 solved)
+- **Combined Solved:** 15 (Union of all formats)
