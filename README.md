@@ -40,7 +40,7 @@ An example task list (`data/first_100.json`) looks like:
 ## Analysis
 
 ### Base Model Performance
-[Base Model Analysis](Results.md)
+[Base Model Analysis](ANALYZE_BASE_MODELS.md)
 
 - Overall, similar performance across the smartest versions of OpenAI, Claude and Gemini
 - GPT-5.1 with no reasoning is the only viable low latency and low cost model, though its performance is very low. Should only be used for very basic tasks.
