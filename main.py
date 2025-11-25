@@ -37,9 +37,9 @@ TABLE_COLUMNS = [get_column_name(m) for m in ORDERED_MODELS]
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Send ARC-AGI tasks to OpenAI.")
     parser.add_argument(
-        "task_list",
-        type=Path,
-        help="JSON file containing a list of task paths (e.g. data/first_100.json).",
+        "task_source",
+        type=str,
+        help="JSON file containing a list of task paths (e.g. data/first_100.json) OR a single task ID (e.g. 15696249).",
     )
     parser.add_argument(
         "--model",
@@ -194,10 +194,37 @@ def main() -> None:
     if google_key:
         google_client = genai.Client(api_key=google_key)
 
-    try:
-        task_paths = load_task_paths(args.task_list)
-    except ValueError as exc:
-        raise RuntimeError(f"Failed to read task list {args.task_list}: {exc}") from exc
+    task_source = args.task_source
+    if task_source.endswith(".json"):
+        # It's a task list file
+        try:
+            task_paths = load_task_paths(Path(task_source))
+            dataset_name = Path(task_source).stem
+        except ValueError as exc:
+            raise RuntimeError(f"Failed to read task list {task_source}: {exc}") from exc
+    else:
+        # Assume it's a Task ID or a direct file path without .json extension (less likely but possible)
+        # First, check if it exists as a file directly
+        if os.path.exists(task_source):
+             # Unlikely based on requirements, but safe fallback
+             try:
+                task_paths = load_task_paths(Path(task_source))
+                dataset_name = Path(task_source).stem
+             except:
+                 # If it fails to load as list, maybe it is a single task file?
+                 # But load_task_paths expects a JSON list.
+                 # If user provided a single task file path directly like "data/training/123.json"
+                 # we should probably treat it as a single task.
+                 # But for now, let's stick to the plan: ID -> specific path.
+                 pass
+
+        # Check if it is a task ID
+        candidate_path = Path("data/arc-agi-2-training") / f"{task_source}.json"
+        if candidate_path.exists():
+            task_paths = [candidate_path]
+            dataset_name = task_source
+        else:
+             raise RuntimeError(f"Input '{task_source}' is not a .json file and not a valid Task ID in data/arc-agi-2-training/")
 
     print_table_header()
     row_counter = 0
@@ -256,7 +283,7 @@ def main() -> None:
         log_dir.mkdir(exist_ok=True)
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        dataset_name = args.task_list.stem
+        # dataset_name variable is already set above
         log_filename = (
             f"{timestamp}_{args.model}_{args.grid_format}_{dataset_name}.json"
         )
