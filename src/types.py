@@ -54,6 +54,7 @@ class TaskResult:
     duration: float
     cost: float
     strategy: Optional[str] = None
+    verified: Optional[bool] = None
 
 @dataclass
 class ModelResponse:

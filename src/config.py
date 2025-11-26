@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enable two-stage strategy extraction (Solve -> Explain).",
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Enable self-consistency verification using LOOCV on training examples.",
+    )
     return parser.parse_args()
 
 def get_api_keys() -> tuple[Optional[str], Optional[str], Optional[str]]:

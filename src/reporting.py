@@ -22,7 +22,7 @@ TABLE_COLUMNS = [get_column_name(m) for m in ORDERED_MODELS]
 
 def print_table_header() -> None:
     # Add Duration and Cost to header
-    columns = ["#", "Task", "Test"] + TABLE_COLUMNS + ["Duration", "Cost"]
+    columns = ["#", "Task", "Test"] + TABLE_COLUMNS + ["Duration", "Cost", "Verified"]
     print("| " + " | ".join(columns) + " |")
     print("| " + " | ".join(["---"] * len(columns)) + " |")
 
@@ -36,10 +36,14 @@ def print_result_row(row_idx: int, result: TaskResult) -> None:
     values = {column: "-" for column in TABLE_COLUMNS}
     values[column_key] = "PASS" if result.success else "FAIL"
     
+    verified_str = "-"
+    if result.verified is not None:
+        verified_str = "PASS" if result.verified else "FAIL"
+
     row = (
         [str(row_idx), str(result.task_path), str(result.test_index)]
         + [values[col] for col in TABLE_COLUMNS]
-        + [f"{result.duration:.2f}", f"{result.cost:.2f}"]
+        + [f"{result.duration:.2f}", f"{result.cost:.2f}", verified_str]
     )
     print("| " + " | ".join(row) + " |")
 
@@ -54,6 +58,19 @@ def print_summary(all_results: List[TaskResult]) -> None:
     passed = sum(1 for r in all_results if r.success)
     percent_pass = (passed / total) * 100 if total > 0 else 0.0
 
+    verified_passed = sum(1 for r in all_results if r.verified)
+    percent_verified = (verified_passed / total) * 100 if total > 0 else 0.0
+
+    # Count cases where Verified=PASS but Result=FAIL
+    verified_but_failed_list = [
+        str(r.task_path.stem) for r in all_results if r.verified and not r.success
+    ]
+    verified_but_failed_count = len(verified_but_failed_list)
+    verified_but_failed_str = str(verified_but_failed_count)
+    if verified_but_failed_count > 0:
+        ids_str = ", ".join(verified_but_failed_list)
+        verified_but_failed_str += f" ({ids_str})"
+
     total_time = sum(r.duration for r in all_results)
     avg_time = total_time / total if total > 0 else 0.0
 
@@ -62,6 +79,8 @@ def print_summary(all_results: List[TaskResult]) -> None:
 
     print("\n--- Summary ---")
     print(f"Pass Rate: {percent_pass:.2f}% ({passed}/{total})")
+    print(f"Verified Rate: {percent_verified:.2f}% ({verified_passed}/{total})")
+    print(f"Verified but Failed: {verified_but_failed_str}")
     print(f"Average Time: {avg_time:.2f}s")
     print(f"Average Cost: ${avg_cost:.4f}")
     print(f"Total Cost: ${total_cost:.4f}")
@@ -82,17 +101,19 @@ def save_json_log(
 
     log_data = []
     for r in all_results:
-        log_data.append(
-            {
-                "model": r.model_arg,
-                "task": str(r.task_path),
-                "test_index": r.test_index,
-                "status": "PASS" if r.success else "FAIL",
-                "time": r.duration,
-                "cost": r.cost,
-                "strategy": r.strategy,
-            }
-        )
+        log_entry = {
+            "model": r.model_arg,
+            "task": str(r.task_path),
+            "test_index": r.test_index,
+            "status": "PASS" if r.success else "FAIL",
+            "time": r.duration,
+            "cost": r.cost,
+            "strategy": r.strategy,
+        }
+        if r.verified is not None:
+            log_entry["verified"] = "PASS" if r.verified else "FAIL"
+        
+        log_data.append(log_entry)
 
     log_path.write_text(json.dumps(log_data, indent=2))
     # This is a user-facing message, so print() is acceptable, 

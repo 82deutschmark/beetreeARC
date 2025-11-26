@@ -32,6 +32,7 @@ def solve_task(
     strategy: str = None,
     verbose: bool = False,
     return_strategy: bool = False,
+    verify: bool = False,
 ) -> List[TaskResult]:
     # Create a thread-local HTTP client with insecure SSL and long timeouts
     # to prevent connection errors and timeouts in threaded environments.
@@ -66,6 +67,11 @@ def solve_task(
             duration = 0.0
             cost = 0.0
             strategy_text = None
+            verified = None
+            
+            # If verification is requested, we must extract the strategy to verify it
+            should_extract = return_strategy or verify
+
             try:
                 start_time = time.perf_counter()
                 
@@ -83,7 +89,7 @@ def solve_task(
                     google_client,
                     prompt,
                     model_arg,
-                    return_strategy=return_strategy,
+                    return_strategy=should_extract,
                     verbose=verbose,
                 )
                 if verbose:
@@ -101,6 +107,78 @@ def solve_task(
                 
                 predicted_grid = parse_grid_from_text(grid_text)
                 success = verify_prediction(predicted_grid, test_example.output)
+
+                # Verification Logic (LOOCV)
+                if verify and strategy_text:
+                    verified = True
+                    
+                    def _attempt_verification(subset_train, target_ex) -> bool:
+                        """Helper to run a single verification pass."""
+                        nonlocal duration, cost
+                        _v_prompt = build_prompt(
+                            subset_train,
+                            target_ex,
+                            strategy=strategy_text
+                        )
+                        _v_start = time.perf_counter()
+                        try:
+                            _v_resp = call_model(
+                                openai_client,
+                                anthropic_client,
+                                google_client,
+                                _v_prompt,
+                                model_arg,
+                                return_strategy=False,
+                                verbose=verbose
+                            )
+                            duration += (time.perf_counter() - _v_start)
+                            cost += calculate_cost(model_config, _v_resp)
+                            _v_grid = parse_grid_from_text(_v_resp.text)
+                            return verify_prediction(_v_grid, target_ex.output)
+                        except Exception as _e:
+                            logger.error(f"Verification error: {_e}")
+                            return False
+
+                    if len(task.train) <= 2:
+                        # Small Dataset Mode: Require 2 successes for each example (allow up to 2 failures)
+                        for i, train_ex in enumerate(task.train):
+                            temp_train = task.train[:i] + task.train[i+1:]
+                            
+                            successes = 0
+                            failures = 0
+                            
+                            # Loop until we get 2 successes or bust (fail > 2)
+                            while successes < 2 and failures <= 2:
+                                if _attempt_verification(temp_train, train_ex):
+                                    successes += 1
+                                else:
+                                    failures += 1
+                            
+                            if successes < 2:
+                                verified = False
+                                if verbose:
+                                    logger.info(f"Verification failed on training example {i+1} (Small Data Mode: {successes} pass, {failures} fail)")
+                                break
+                    else:
+                        # Standard Mode: All must pass, allow 1 retry per example
+                        for i, train_ex in enumerate(task.train):
+                            temp_train = task.train[:i] + task.train[i+1:]
+                            
+                            # Attempt 1
+                            passed = _attempt_verification(temp_train, train_ex)
+                            
+                            # Attempt 2 (Retry) if failed
+                            if not passed:
+                                if verbose:
+                                    logger.info(f"Verification retry on training example {i+1}...")
+                                passed = _attempt_verification(temp_train, train_ex)
+                            
+                            if not passed:
+                                verified = False
+                                if verbose:
+                                    logger.info(f"Verification failed on training example {i+1}")
+                                break
+
             except Exception as exc:
                 logger.error(f"Task {task_path} test {idx} failed: {type(exc)} {exc}")
             
@@ -111,7 +189,8 @@ def solve_task(
                 model_arg=model_arg,
                 duration=duration,
                 cost=cost,
-                strategy=strategy_text
+                strategy=strategy_text,
+                verified=verified
             ))
         return outcomes
     finally:
