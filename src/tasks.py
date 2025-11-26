@@ -44,6 +44,7 @@ def build_prompt(
     grid_format: GridFormat = GridFormat.STANDARD,
     strategy: str = None,
     response_format: str = "text",
+    suppress_final_instruction: bool = False,
 ) -> str:
     lines = [
         "You are solving an ARC (Abstraction and Reasoning Corpus) task.",
@@ -67,6 +68,9 @@ def build_prompt(
     lines.append("Test input:")
     lines.append(format_grid(test_example.input, fmt=grid_format))
     lines.append("")
+
+    if suppress_final_instruction:
+        return "\n".join(lines)
 
     if response_format == "json":
         # Legacy/XML envelope mode if user still wants single-pass structured

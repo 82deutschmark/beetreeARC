@@ -91,8 +91,8 @@ def parse_args() -> argparse.Namespace:
         "--response-format",
         type=str,
         default="text",
-        choices=["text", "json", "capture-internal-thinking", "two-stage-explanation"],
-        help="Format of the model response (text, json, capture-internal-thinking, or two-stage-explanation).",
+        choices=["text", "json", "capture-internal-thinking", "two-stage-explanation", "two-stage-explanation-reversed"],
+        help="Format of the model response (text, json, capture-internal-thinking, two-stage-explanation, or two-stage-explanation-reversed).",
     )
     return parser.parse_args()
 
@@ -116,6 +116,7 @@ def solve_task(
         effective_format = response_format
         capture_thinking = False
         two_stage_explanation = False
+        two_stage_explanation_reversed = False
 
         if response_format == "capture-internal-thinking":
             effective_format = "text"
@@ -123,6 +124,9 @@ def solve_task(
         elif response_format == "two-stage-explanation":
             effective_format = "text"
             two_stage_explanation = True
+        elif response_format == "two-stage-explanation-reversed":
+            effective_format = "text"
+            two_stage_explanation_reversed = True
 
         prompt = build_prompt(
             task.train,
@@ -130,6 +134,7 @@ def solve_task(
             grid_format=grid_format,
             strategy=strategy,
             response_format=effective_format,
+            suppress_final_instruction=two_stage_explanation_reversed,
         )
         if verbose:
             print(f"--- PROMPT ---\n{prompt}\n--- END PROMPT ---", file=sys.stderr)
@@ -148,17 +153,19 @@ def solve_task(
                 response_format=effective_format,
                 capture_thinking=capture_thinking,
                 two_stage_explanation=two_stage_explanation,
+                two_stage_explanation_reversed=two_stage_explanation_reversed,
+                verbose=verbose,
             )
             if verbose:
-                print(
-                    f"--- OUTPUT ---\n{model_response.text}\n--- END OUTPUT ---",
-                    file=sys.stderr,
-                )
                 if model_response.explanation:
                     print(
                         f"--- INTERNAL THINKING ---\n{model_response.explanation}\n--- END INTERNAL THINKING ---",
                         file=sys.stderr,
                     )
+                print(
+                    f"--- OUTPUT ---\n{model_response.text}\n--- END OUTPUT ---",
+                    file=sys.stderr,
+                )
             duration = time.perf_counter() - start_time
 
             _, base_model, _ = parse_model_arg(model_arg)

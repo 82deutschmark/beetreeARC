@@ -104,46 +104,9 @@ def call_openai_internal(
     response_format: str = "text",
     capture_thinking: bool = False,
     two_stage_explanation: bool = False,
+    two_stage_explanation_reversed: bool = False,
+    verbose: bool = False,
 ) -> ModelResponse:
-    # Use a custom client with TCP Keep-Alive to prevent timeouts on long reasoning tasks
-    # (e.g. NAT/Firewall dropping idle connections after 15-30 mins)
-    http_client = httpx.Client(
-        timeout=3600.0,
-        transport=httpx.HTTPTransport(retries=3),
-        limits=httpx.Limits(keepalive_expiry=3600)
-    )
-    # Note: OpenAI client doesn't easily accept a per-request http_client override in the SDK logic
-    # without re-initializing. However, the 'client' passed in is already initialized.
-    # Ideally, we should configure the 'client' object passed to this function with keepalive
-    # at initialization time in main.py.
-    
-    # Since we can't easily swap the transport of the passed 'client', 
-    # we will re-initialize a temporary client here just for this call if it's a long reasoning task,
-    # OR we should rely on the user to fix main.py.
-    
-    # BETTER FIX: The user asked to fix the connection error.
-    # The robust way is to modify main.py to initialize OpenAI(http_client=...)
-    # But I am only editing src/models.py right now.
-    # I will assume the passed 'client' might not have it.
-    
-    # Actually, standard OpenAI python client uses httpx.
-    # We can try to hack it or just use a fresh client.
-    # Let's use a fresh client wrapper for the robust reasoning call?
-    # No, that requires API key again.
-    
-    # Let's modify main.py instead? The instruction was "Yes" to "apply this fix".
-    # I should probably modify main.py to configure the client globally.
-    # But I am currently restricted to editing via 'replace'.
-    
-    # I will update main.py in the next step. 
-    # For now, I will leave this function as is but add a comment?
-    # No, I need to act.
-    
-    # Re-reading the error: "Connection error".
-    # I'll update main.py to inject the http_client.
-    pass
-
-# ... (rest of file)
     # Uniformly use the Responses API for all OpenAI calls
     kwargs = {
         "model": model,
@@ -164,7 +127,90 @@ def call_openai_internal(
                 "effort": reasoning_effort
             }
 
-    # STEP 1: Solve the task
+    # Handle Reversed Two-Stage (Explain -> Solve)
+    if two_stage_explanation_reversed:
+        # Modify Step 1 Prompt to ask for explanation ONLY
+        # We append instruction to the user prompt
+        step1_content = prompt + "\n\nThink through the examples above, and what solution/strategy you would use to solve this problem to generate the test output. Please respond back with a brief explanation of the strategy you would deploy. Only respond with this, no explicit solution needed yet"
+        step1_input = [{"role": "user", "content": step1_content}]
+        kwargs["input"] = step1_input
+        
+        if verbose:
+            print(f"--- REAL PROMPT STEP 1 (Explain) ---\n{step1_content}\n--- END REAL PROMPT STEP 1 ---", file=sys.stderr)
+        
+        # STEP 1: Explain
+        response1 = None
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response1 = client.responses.create(**kwargs)
+                break
+            except Exception as e:
+                # Error handling logic...
+                err_str = str(e)
+                if attempt < max_retries - 1 and ("Connection error" in err_str or "500" in err_str or "timed out" in err_str):
+                    time.sleep(5)
+                    continue
+                raise e
+        
+        # Extract Step 1 Explanation
+        explanation_text = ""
+        if hasattr(response1, "output"):
+            for item in response1.output:
+                if item.type == "message":
+                    for content_part in item.content:
+                        if content_part.type == "output_text":
+                            explanation_text += content_part.text
+        
+        # STEP 2: Solve (using previous_response_id)
+        step2_input_text = "Based on the brief explanation/strategy above, please work through the problem in great detail and depth to come up with the correct test output grid and output it. Respond with ONLY the completed output grid."
+        
+        if verbose:
+            print(f"--- REAL PROMPT STEP 2 (Solve) ---\n{step2_input_text}\n--- END REAL PROMPT STEP 2 ---", file=sys.stderr)
+        
+        kwargs_step2 = {
+            "model": model,
+            "previous_response_id": response1.id,
+            "input": [{"role": "user", "content": step2_input_text}],
+            "timeout": 3600
+        }
+        
+        response2 = None
+        for attempt in range(max_retries):
+            try:
+                response2 = client.responses.create(**kwargs_step2)
+                break
+            except Exception as e:
+                 # If Step 2 fails, we return empty grid but preserve explanation
+                 print(f"Step 2 grid generation failed: {e}", file=sys.stderr)
+                 # Usage aggregation partial
+                 return ModelResponse(text="", prompt_tokens=0, cached_tokens=0, completion_tokens=0, explanation=explanation_text)
+        
+        # Extract Step 2 Grid
+        grid_text = ""
+        if hasattr(response2, "output"):
+            for item in response2.output:
+                if item.type == "message":
+                    for content_part in item.content:
+                        if content_part.type == "output_text":
+                            grid_text += content_part.text
+                            
+        # Aggregate Usage
+        usage1 = getattr(response1, "usage", None)
+        usage2 = getattr(response2, "usage", None)
+        
+        p_tokens = (getattr(usage1, "input_tokens", 0) or 0) + (getattr(usage2, "input_tokens", 0) or 0)
+        c_tokens = (getattr(usage1, "output_tokens", 0) or 0) + (getattr(usage2, "output_tokens", 0) or 0)
+        
+        return ModelResponse(
+            text=grid_text,
+            prompt_tokens=p_tokens,
+            cached_tokens=0,
+            completion_tokens=c_tokens,
+            explanation=explanation_text
+        )
+
+    # STEP 1: Solve the task (Standard or Forward Two-Stage)
     response = None
     max_retries = 3
     for attempt in range(max_retries):
@@ -453,6 +499,8 @@ def call_model(
     response_format: str = "text",
     capture_thinking: bool = False,
     two_stage_explanation: bool = False,
+    two_stage_explanation_reversed: bool = False,
+    verbose: bool = False,
 ) -> ModelResponse:
     provider, base_model, config = parse_model_arg(model_arg)
 
@@ -465,6 +513,8 @@ def call_model(
             response_format,
             capture_thinking=capture_thinking,
             two_stage_explanation=two_stage_explanation,
+            two_stage_explanation_reversed=two_stage_explanation_reversed,
+            verbose=verbose,
         )
     elif provider == "anthropic":
         if not anthropic_client:

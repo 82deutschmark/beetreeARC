@@ -60,3 +60,10 @@ An example task list (`data/first_100.json`) looks like:
 - Formats not (yet) explored: object representation yet (e.g. islands, matched over rotations), condensed (e.g. 3 black, then 10 blue, ...), input-to-output diff, image/multimodal
 - I have not yet explored the performance increase from having multiple representations present at the same time
 - Conclusion: For now, will use CSV grid format only, and later on explore problem-specific representations (sparse, object, diff, image, etc)
+
+### Explanation Extraction
+[Explanation Extraction Analysis](https://github.com/beetree/ARC-AGI/blob/main/ANALYZE_EXPLANATION_EXTRACTION.md)
+
+In order to refine the results we need to introduce a concept of "explanation" of why the model has chosen to come to a certain answer/conclusion. This "explanation" works like a strategy that can be applied to other test cases thereby enabling us to validate responses, either through testing it on the supplied test data or on synthetic data.
+
+I tested several approaches of getting an "explanation" out of the model. Many had an actual performance implication by affecting the reasoning, through a distraction or deterioration of the spacial reasoning. In the end, the best proved to be a two stage prompt approach where the first stage outputs the solution, and a second stage outputs the explanation with as much context as possible retained from the first step (same session id, etc).
