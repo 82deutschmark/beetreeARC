@@ -391,4 +391,7 @@ This turns the constant segments into the larger triangles/diamonds of 6s, 7s, 9
 ```
 Pass rate: X/10
 
+Strategy: `Extend diagonally for the main line. Then for the rest, fill their area.`
+Pass rate: X/10
+
 
