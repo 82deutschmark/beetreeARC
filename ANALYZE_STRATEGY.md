@@ -313,3 +313,82 @@ Strategy:
 ```
 Pass rate: 7/10
 
+
+# gpt-5.1-high
+
+## 1190bc91
+
+Strategy: NA
+Pass rate: 1/10
+
+Strategy:
+```
+Across the three examples, the grid always contains:
+	1.	One main long line of different colors
+	•	Ex1: the long horizontal row 2,3,7,9,5,1,8
+	•	Ex2: the long vertical column 8,4,6,3,2,1
+	•	Ex3: the vertical 3,2,4
+	•	Test: the vertical 2,4,8,6,3 in column 2
+	2.	Short constant segments on the border (all same color, length ≥ 2)
+	•	Ex1: 6,6 at top, and 4,4 on the left
+	•	Ex2: 7,7 at top, and 9,9 on the right
+	•	Ex3: 8,8 on the left
+	•	Test: 9,9 at top, and 7,7 on the right
+
+The transformation:
+
+1. Diagonal “spray” from the main line
+	•	Take the longest line (main spine): in the test, that’s the vertical 2,4,8,6,3 in column 2.
+	•	Each cell of this line keeps its color and copies that color out along all four diagonals (↖, ↗, ↙, ↘).
+	•	You keep extending along a diagonal until you hit a non-zero cell; you don’t overwrite existing colors.
+	•	This builds a kind of diamond of the spine’s colors (just like the 8–4–6–3–2 in Example 2 spread diagonally).
+
+2. Diagonal spray from the other original non-zero cells
+	•	Do the same diagonal propagation from the other original non-zero cells (like the top pair and side pair), also stopping as soon as you hit any non-zero cell.
+
+3. Extend constant segments along their row/column
+
+For each constant segment (all same color, length ≥ 2) from the original grid:
+	•	If it’s horizontal (like 9,9 in the test on row 0):
+	•	Extend that color left and right along the same row into zeros until you hit another non-zero.
+	•	If it’s vertical (like 7,7 in the test on column 7, rows 3–4):
+	•	Extend that color up and down along the same column into zeros until you hit another non-zero.
+
+This gives you:
+	•	A band of 9s across the top (in the test), and
+	•	A vertical bar of 7s that stretches along column 7.
+
+4. Extra diagonal spread from the extended constant segments
+
+Finally, from all cells that belong to these extended constant segments:
+	•	Spread their color diagonally (↖, ↗, ↙, ↘) again.
+	•	While doing this:
+	•	You may pass through cells of the same color (so you can “go past” earlier 9s or 7s),
+	•	But you stop if you hit a different non-zero color,
+	•	And you only fill zeros.
+
+This turns the constant segments into the larger triangles/diamonds of 6s, 7s, 9s, 4s you see in the examples.
+```
+Pass rate: 8/10
+
+
+Strategy:
+```
+Across the three examples, the grid always contains one main long line of different colors, and a few short constant segments on the border (all same color, length ≥ 2)
+
+The transformation:
+1. Diagonal “spray” from the main line
+2. Diagonal spray from the other original non-zero cells
+3. Extend constant segments along their row/column
+4. Extra diagonal spread from the extended constant segments
+
+Finally, from all cells that belong to these extended constant segments:
+	•	Spread their color diagonally (↖, ↗, ↙, ↘) again.
+	•	But you stop if you hit a different non-zero color,
+	•	And you only fill zeros.
+
+This turns the constant segments into the larger triangles/diamonds of 6s, 7s, 9s, 4s you see in the examples.
+```
+Pass rate: X/10
+
+
