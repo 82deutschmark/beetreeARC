@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
 
+import httpx
 from openai import OpenAI
 from anthropic import Anthropic
 from google import genai
@@ -23,7 +24,14 @@ from src.models import (
     ORDERED_MODELS,
 )
 from src.tasks import load_task, load_task_paths, build_prompt
-from src.utils import parse_grid_from_text, verify_prediction, GridFormat
+from src.utils import (
+    parse_grid_from_text,
+    verify_prediction,
+    GridFormat,
+    extract_json_answer,
+    extract_xml_answer,
+)
+
 
 def get_column_name(model_arg: str) -> str:
     parts = model_arg.split("-")
@@ -32,7 +40,9 @@ def get_column_name(model_arg: str) -> str:
     name = name.replace("Gpt", "GPT")
     return name
 
+
 TABLE_COLUMNS = [get_column_name(m) for m in ORDERED_MODELS]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Send ARC-AGI tasks to OpenAI.")
@@ -77,7 +87,15 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Number of times to run the test suite.",
     )
+    parser.add_argument(
+        "--response-format",
+        type=str,
+        default="text",
+        choices=["text", "json", "capture-internal-thinking", "two-stage-explanation"],
+        help="Format of the model response (text, json, capture-internal-thinking, or two-stage-explanation).",
+    )
     return parser.parse_args()
+
 
 def solve_task(
     openai_client: OpenAI,
@@ -88,29 +106,59 @@ def solve_task(
     grid_format_str: str,
     strategy: str = None,
     verbose: bool = False,
+    response_format: str = "text",
 ) -> List[ResultRecord]:
     grid_format = GridFormat(grid_format_str)
     task = load_task(task_path)
     outcomes: List[ResultRecord] = []
     for idx, test_example in enumerate(task.test, start=1):
+        # Format determination logic
+        effective_format = response_format
+        capture_thinking = False
+        two_stage_explanation = False
+
+        if response_format == "capture-internal-thinking":
+            effective_format = "text"
+            capture_thinking = True
+        elif response_format == "two-stage-explanation":
+            effective_format = "text"
+            two_stage_explanation = True
+
         prompt = build_prompt(
-            task.train, test_example, grid_format=grid_format, strategy=strategy
+            task.train,
+            test_example,
+            grid_format=grid_format,
+            strategy=strategy,
+            response_format=effective_format,
         )
         if verbose:
             print(f"--- PROMPT ---\n{prompt}\n--- END PROMPT ---", file=sys.stderr)
         success = False
         duration = 0.0
         cost = 0.0
+        explanation = None
         try:
             start_time = time.perf_counter()
             model_response = call_model(
-                openai_client, anthropic_client, google_client, prompt, model_arg
+                openai_client,
+                anthropic_client,
+                google_client,
+                prompt,
+                model_arg,
+                response_format=effective_format,
+                capture_thinking=capture_thinking,
+                two_stage_explanation=two_stage_explanation,
             )
             if verbose:
                 print(
                     f"--- OUTPUT ---\n{model_response.text}\n--- END OUTPUT ---",
                     file=sys.stderr,
                 )
+                if model_response.explanation:
+                    print(
+                        f"--- INTERNAL THINKING ---\n{model_response.explanation}\n--- END INTERNAL THINKING ---",
+                        file=sys.stderr,
+                    )
             duration = time.perf_counter() - start_time
 
             _, base_model, _ = parse_model_arg(model_arg)
@@ -138,17 +186,31 @@ def solve_task(
                 + (model_response.completion_tokens / 1_000_000 * pricing["output"])
             )
 
-            predicted_grid = parse_grid_from_text(model_response.text, fmt=grid_format)
+            grid_text = model_response.text
+            explanation = model_response.explanation
+            
+            if response_format == "json":
+                # We now use XML tags for structured output even when the flag is "json"
+                extracted_grid, extracted_explanation = extract_xml_answer(
+                    model_response.text
+                )
+                if extracted_grid:
+                    grid_text = extracted_grid
+                explanation = extracted_explanation
+
+            predicted_grid = parse_grid_from_text(grid_text, fmt=grid_format)
             success = verify_prediction(predicted_grid, test_example.output)
         except Exception as exc:
             print(f"Task {task_path} test {idx} failed: {exc}", file=sys.stderr)
-        outcomes.append((task_path, idx, success, model_arg, duration, cost))
+        outcomes.append((task_path, idx, success, model_arg, duration, cost, explanation))
     return outcomes
+
 
 def print_table_header() -> None:
     columns = ["#", "Task", "Test"] + TABLE_COLUMNS
     print("| " + " | ".join(columns) + " |")
     print("| " + " | ".join(["---"] * len(columns)) + " |")
+
 
 def print_result_row(
     row_idx: int,
@@ -158,6 +220,7 @@ def print_result_row(
     model_arg: str,
     duration: float,
     cost: float,
+    explanation: str | None,
 ) -> None:
     column_key = get_column_name(model_arg)
 
@@ -176,13 +239,22 @@ def print_result_row(
     )
     print("| " + " | ".join(row) + " |")
 
+
 def main() -> None:
     args = parse_args()
 
     openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
         raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
-    openai_client = OpenAI(api_key=openai_key)
+    
+    # Configure HTTP client with TCP Keep-Alive to prevent idle timeouts (NAT/Firewall)
+    # during long reasoning tasks (up to 1 hour).
+    http_client = httpx.Client(
+        timeout=3600.0,
+        transport=httpx.HTTPTransport(retries=3),
+        limits=httpx.Limits(keepalive_expiry=3600)
+    )
+    openai_client = OpenAI(api_key=openai_key, http_client=http_client)
 
     claude_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
     anthropic_client = None
@@ -206,17 +278,17 @@ def main() -> None:
         # Assume it's a Task ID or a direct file path without .json extension (less likely but possible)
         # First, check if it exists as a file directly
         if os.path.exists(task_source):
-             # Unlikely based on requirements, but safe fallback
-             try:
+            # Unlikely based on requirements, but safe fallback
+            try:
                 task_paths = load_task_paths(Path(task_source))
                 dataset_name = Path(task_source).stem
-             except:
-                 # If it fails to load as list, maybe it is a single task file?
-                 # But load_task_paths expects a JSON list.
-                 # If user provided a single task file path directly like "data/training/123.json"
-                 # we should probably treat it as a single task.
-                 # But for now, let's stick to the plan: ID -> specific path.
-                 pass
+            except:
+                # If it fails to load as list, maybe it is a single task file?
+                # But load_task_paths expects a JSON list.
+                # If user provided a single task file path directly like "data/training/123.json"
+                # we should probably treat it as a single task.
+                # But for now, let's stick to the plan: ID -> specific path.
+                pass
 
         # Check if it is a task ID
         candidate_path = Path("data/arc-agi-2-training") / f"{task_source}.json"
@@ -224,7 +296,9 @@ def main() -> None:
             task_paths = [candidate_path]
             dataset_name = task_source
         else:
-             raise RuntimeError(f"Input '{task_source}' is not a .json file and not a valid Task ID in data/arc-agi-2-training/")
+            raise RuntimeError(
+                f"Input '{task_source}' is not a .json file and not a valid Task ID in data/arc-agi-2-training/"
+            )
 
     print_table_header()
     row_counter = 0
@@ -244,6 +318,7 @@ def main() -> None:
                     args.grid_format,
                     args.strategy,
                     args.verbose,
+                    args.response_format,
                 )
                 future_to_path[future] = path
 
@@ -299,6 +374,7 @@ def main() -> None:
                     "status": "PASS" if r[2] else "FAIL",
                     "time": r[4],
                     "cost": r[5],
+                    "explanation": r[6],
                 }
             )
 
