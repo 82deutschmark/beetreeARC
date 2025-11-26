@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from src.models import SUPPORTED_MODELS, ORDERED_MODELS
+from src.types import SUPPORTED_MODELS, ORDERED_MODELS
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Send ARC-AGI tasks to OpenAI.")

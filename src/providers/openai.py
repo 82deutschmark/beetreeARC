@@ -5,6 +5,9 @@ from openai import OpenAI
 
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
+from src.logging import get_logger
+
+logger = get_logger("providers.openai")
 
 def call_openai_internal(
     client: OpenAI,
@@ -86,7 +89,7 @@ def call_openai_internal(
                 completion_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
             )
         except Exception as e:
-            print(f"Step 2 strategy extraction failed: {e}", file=sys.stderr)
+            logger.error(f"Step 2 strategy extraction failed: {e}")
             return None
 
     return orchestrate_two_stage(_solve, _explain, prompt, return_strategy, verbose)

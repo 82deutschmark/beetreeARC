@@ -3,6 +3,9 @@ import time
 from typing import Callable, Any, Optional
 
 from src.types import ModelResponse
+from src.logging import get_logger
+
+logger = get_logger("llm_utils")
 
 def run_with_retry(
     func: Callable[[], Any],
@@ -17,6 +20,7 @@ def run_with_retry(
             if retry_predicate(e):
                 if attempt < max_retries - 1:
                     delay = 5 if attempt == 0 else 30
+                    logger.debug(f"Retryable error encountered: {e}. Retrying in {delay}s...")
                     time.sleep(delay)
                     continue
             raise e
@@ -33,7 +37,8 @@ def orchestrate_two_stage(
     """
     # Step 1: Solve
     if verbose:
-        print(f"--- REAL PROMPT STEP 1 (Solve) ---\n{prompt}\n--- END REAL PROMPT STEP 1 ---", file=sys.stderr)
+        # We use DEBUG level for prompt dumps, requiring verbose=True in main setup
+        logger.debug(f"--- REAL PROMPT STEP 1 (Solve) ---\n{prompt}\n--- END REAL PROMPT STEP 1 ---")
     
     response1 = solve_func(prompt)
     
@@ -43,7 +48,7 @@ def orchestrate_two_stage(
     # Step 2: Explain
     step2_input = "Explain the strategy you used in broad terms such that it can be applied on other similar examples and other input data."
     if verbose:
-        print(f"--- REAL PROMPT STEP 2 (Explain) ---\n{step2_input}\n--- END REAL PROMPT STEP 2 ---", file=sys.stderr)
+        logger.debug(f"--- REAL PROMPT STEP 2 (Explain) ---\n{step2_input}\n--- END REAL PROMPT STEP 2 ---")
 
     response2 = explain_func(step2_input, response1)
 

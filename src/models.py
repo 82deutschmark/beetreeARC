@@ -1,5 +1,3 @@
-from typing import Tuple
-
 from openai import OpenAI
 from anthropic import Anthropic
 from google import genai
@@ -7,8 +5,6 @@ from google import genai
 from src.types import (
     ModelConfig, 
     ModelResponse, 
-    TaskResult, 
-    ORDERED_MODELS, 
     SUPPORTED_MODELS, 
     PRICING_PER_1M_TOKENS,
     GPT_5_1_BASE,

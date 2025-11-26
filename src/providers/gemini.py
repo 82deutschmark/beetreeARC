@@ -6,6 +6,9 @@ from google.genai import types
 
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
+from src.logging import get_logger
+
+logger = get_logger("providers.gemini")
 
 def call_gemini(
     client: genai.Client,
@@ -69,7 +72,7 @@ def call_gemini(
                 completion_tokens=usage.candidates_token_count,
             )
         except Exception as e:
-            print(f"Step 2 strategy extraction failed: {e}", file=sys.stderr)
+            logger.error(f"Step 2 strategy extraction failed: {e}")
             return None
 
     return orchestrate_two_stage(_solve, _explain, prompt, return_strategy, verbose)

@@ -12,13 +12,16 @@ from src.models import (
     call_model,
     parse_model_arg,
     calculate_cost,
-    TaskResult,
 )
+from src.types import TaskResult
 from src.tasks import load_task, build_prompt
 from src.utils import (
     parse_grid_from_text,
     verify_prediction,
 )
+from src.logging import get_logger
+
+logger = get_logger("solver")
 
 def solve_task(
     openai_key: Optional[str],
@@ -85,14 +88,9 @@ def solve_task(
                 )
                 if verbose:
                     if model_response.strategy:
-                        print(
-                            f"--- STRATEGY ---\n{model_response.strategy}\n--- END STRATEGY ---",
-                            file=sys.stderr,
-                        )
-                    print(
-                        f"--- OUTPUT ---\n{model_response.text}\n--- END OUTPUT ---",
-                        file=sys.stderr,
-                    )
+                        logger.debug(f"--- STRATEGY ---\n{model_response.strategy}\n--- END STRATEGY ---")
+                    logger.debug(f"--- OUTPUT ---\n{model_response.text}\n--- END OUTPUT ---")
+
                 duration = time.perf_counter() - start_time
 
                 model_config = parse_model_arg(model_arg)
@@ -104,7 +102,7 @@ def solve_task(
                 predicted_grid = parse_grid_from_text(grid_text)
                 success = verify_prediction(predicted_grid, test_example.output)
             except Exception as exc:
-                print(f"Task {task_path} test {idx} failed: {type(exc)} {exc}", file=sys.stderr)
+                logger.error(f"Task {task_path} test {idx} failed: {type(exc)} {exc}")
             
             outcomes.append(TaskResult(
                 task_path=task_path,

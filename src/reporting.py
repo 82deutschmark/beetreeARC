@@ -4,7 +4,10 @@ import sys
 from pathlib import Path
 from typing import List
 
-from src.models import TaskResult, ORDERED_MODELS
+from src.types import TaskResult, ORDERED_MODELS
+from src.logging import get_logger
+
+logger = get_logger("reporting")
 
 # Re-implement get_column_name locally or import if shared. 
 # Since it's presentation logic, it fits here.
@@ -73,7 +76,8 @@ def save_json_log(
     log_dir.mkdir(exist_ok=True)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = f"{timestamp}_{model_arg}_csv_{dataset_name}.json"
+    # Removed hardcoded _csv_ as requested
+    log_filename = f"{timestamp}_{model_arg}_{dataset_name}.json"
     log_path = log_dir / log_filename
 
     log_data = []
@@ -91,4 +95,6 @@ def save_json_log(
         )
 
     log_path.write_text(json.dumps(log_data, indent=2))
+    # This is a user-facing message, so print() is acceptable, 
+    # but logging.info is also fine. Let's stick to print for output consistency.
     print(f"Log saved to: {log_path}")

@@ -5,6 +5,9 @@ from anthropic import Anthropic
 
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
+from src.logging import get_logger
+
+logger = get_logger("providers.anthropic")
 
 def call_anthropic(
     client: Anthropic,
@@ -95,7 +98,7 @@ def call_anthropic(
                 completion_tokens=final.usage.output_tokens,
             )
         except Exception as e:
-            print(f"Step 2 strategy extraction failed: {e}", file=sys.stderr)
+            logger.error(f"Step 2 strategy extraction failed: {e}")
             return None
 
     return orchestrate_two_stage(_solve, _explain, prompt, return_strategy, verbose)

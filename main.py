@@ -19,9 +19,15 @@ from src.reporting import (
     save_json_log,
 )
 from src.solver import solve_task
+from src.logging import setup_logging, get_logger
 
 def main() -> None:
     args = parse_args()
+    # Setup logging
+    # We pass verbose=True if the user requested verbose output, enabling debug logs to stderr
+    setup_logging(args.verbose)
+    logger = get_logger("main")
+
     openai_key, claude_key, google_key = get_api_keys()
 
     task_source = args.task_source
@@ -79,10 +85,8 @@ def main() -> None:
                 all_results.extend(task_results)
             except Exception as exc:
                 path = future_to_path[future]
-                print(
-                    f"Task execution for {path} generated an exception: {exc}",
-                    file=sys.stderr,
-                )
+                # Use logger instead of print(file=sys.stderr)
+                logger.error(f"Task execution for {path} generated an exception: {exc}")
 
     if all_results:
         print_summary(all_results)

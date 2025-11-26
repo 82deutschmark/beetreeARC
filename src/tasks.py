@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Iterable
+from typing import List
 
 from src.utils import Grid, format_grid
 
@@ -43,7 +43,6 @@ def build_prompt(
     train_examples: List[Example],
     test_example: Example,
     strategy: str = None,
-    suppress_final_instruction: bool = False,
 ) -> str:
     lines = [
         "You are solving an ARC (Abstraction and Reasoning Corpus) task.",
@@ -67,9 +66,6 @@ def build_prompt(
     lines.append("Test input:")
     lines.append(format_grid(test_example.input))
     lines.append("")
-
-    if suppress_final_instruction:
-        return "\n".join(lines)
 
     lines.append("Respond with ONLY the completed output grid.")
 
