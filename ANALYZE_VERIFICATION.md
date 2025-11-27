@@ -148,7 +148,20 @@ gpt-5.1-low on top 10 (low_top_10_low_vs_non):
 
 TODO: I really should instead train a model to predict the likelihood of there being a true PASS based on the data supplied (testing from different models, multiple tests, backtesting, etc).
 
-Either way, I'm going to assume that the current approach with two matching runs plus backtesting raises the precision sufficiently high to not harm things.
+Either way, I'm going to assume that the current approach with two matching runs plus backtesting raises the precision sufficiently high to not harm things. Below are some results that suggests this probably at least fairly true (on representative data):
+
+gpt-5.1-none on first 100:
+- Pass Rate: 9.62% (20/208)
+- Verified Rate: 1.44% (3/208)
+- Verified but Failed: 0
+
+gpt-5.1-low on first 100:
+- Pass Rate: 33.65% (35/104)
+- Verified Rate: 17.31% (18/104)
+- Verified but Failed: 1 (0b148d64)
+
+
+
 
 
 
