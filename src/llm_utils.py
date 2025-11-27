@@ -10,7 +10,7 @@ logger = get_logger("llm_utils")
 def run_with_retry(
     func: Callable[[], Any],
     retry_predicate: Callable[[Exception], bool],
-    max_retries: int = 3
+    max_retries: int = 7
 ) -> Any:
     """Generic retry loop helper."""
     for attempt in range(max_retries):
@@ -19,8 +19,9 @@ def run_with_retry(
         except Exception as e:
             if retry_predicate(e):
                 if attempt < max_retries - 1:
-                    delay = 5 if attempt == 0 else 30
-                    logger.debug(f"Retryable error encountered: {e}. Retrying in {delay}s...")
+                    # Exponential backoff with a cap: 5, 10, 20, 40, 60, 60...
+                    delay = min(5 * (2 ** attempt), 60)
+                    logger.debug(f"Retryable error encountered: {e}. Retrying in {delay}s (Attempt {attempt + 1}/{max_retries})...")
                     time.sleep(delay)
                     continue
             raise e

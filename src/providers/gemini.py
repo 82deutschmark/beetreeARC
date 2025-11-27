@@ -23,7 +23,16 @@ def call_gemini(
 
     def _should_retry(e: Exception) -> bool:
         err_str = str(e)
-        return "500" in err_str or "UNAVAILABLE" in err_str or "overloaded" in err_str.lower()
+        return (
+            "500" in err_str 
+            or "UNAVAILABLE" in err_str 
+            or "overloaded" in err_str.lower()
+            or "Server disconnected" in err_str
+            or "RemoteProtocolError" in err_str
+            or "connection closed" in err_str.lower()
+            or "peer closed connection" in err_str.lower()
+            or "incomplete chunked read" in err_str.lower()
+        )
 
     level_enum = types.ThinkingLevel.LOW if thinking_level == "low" else types.ThinkingLevel.HIGH
     gen_config = types.GenerateContentConfig(

@@ -28,6 +28,11 @@ def call_openai_internal(
             or "server_error" in err_str
             or "upstream connect error" in err_str
             or "timed out" in err_str
+            or "Server disconnected" in err_str
+            or "RemoteProtocolError" in err_str
+            or "connection closed" in err_str.lower()
+            or "peer closed connection" in err_str.lower()
+            or "incomplete chunked read" in err_str.lower()
         )
 
     def _solve(p: str) -> ModelResponse:
