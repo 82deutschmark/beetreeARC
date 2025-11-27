@@ -86,6 +86,14 @@ def print_summary(all_results: List[TaskResult]) -> None:
     print(f"Total Cost: ${total_cost:.4f}")
     print("---------------")
 
+    if verified_but_failed_count > 0:
+        print("\n--- Verified but Failed Strategies ---")
+        for r in all_results:
+            if r.verified and not r.success:
+                print(f"\nTask: {r.task_path.name} (Test {r.test_index})")
+                print(f"Strategy:\n{r.strategy}")
+        print("--------------------------------------")
+
 def save_json_log(
     all_results: List[TaskResult], 
     model_arg: str, 

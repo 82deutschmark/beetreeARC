@@ -46,7 +46,7 @@ def orchestrate_two_stage(
         return response1
 
     # Step 2: Explain
-    step2_input = "Explain the strategy you used in broad terms such that it can be applied on other similar examples and other input data."
+    step2_input = "Explain the strategy you used in broad terms such that it can be applied on other similar examples and other input data. Do not use any of the example or other actual data in your explanation."
     if verbose:
         logger.debug(f"--- REAL PROMPT STEP 2 (Explain) ---\n{step2_input}\n--- END REAL PROMPT STEP 2 ---")
 
