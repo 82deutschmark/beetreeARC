@@ -37,9 +37,15 @@ def parse_model_arg(model_arg: str) -> ModelConfig:
                 pass
 
     if model_arg.startswith("claude-opus-4.5-"):
-        parts = model_arg.split("-")
-        effort = parts[-1]
-        return ModelConfig("anthropic", CLAUDE_OPUS_BASE, effort)
+        suffix = model_arg.replace("claude-opus-4.5-", "")
+        if suffix == "no-thinking":
+            return ModelConfig("anthropic", CLAUDE_OPUS_BASE, 0)
+        if suffix.startswith("thinking-"):
+            try:
+                budget = int(suffix.split("-")[1])
+                return ModelConfig("anthropic", CLAUDE_OPUS_BASE, budget)
+            except (IndexError, ValueError):
+                pass
 
     if model_arg.startswith("gemini-3-"):
         parts = model_arg.split("-")

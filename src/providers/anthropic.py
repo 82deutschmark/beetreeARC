@@ -28,6 +28,11 @@ def call_anthropic(
             or "Internal server error" in err_str
             or "Connection reset" in err_str
             or "Connection error" in err_str
+            or "Server disconnected" in err_str
+            or "RemoteProtocolError" in err_str
+            or "connection closed" in err_str.lower()
+            or "peer closed connection" in err_str.lower()
+            or "incomplete chunked read" in err_str.lower()
         )
 
     kwargs = {
@@ -40,10 +45,6 @@ def call_anthropic(
         if budget >= max_tokens: budget = max_tokens - 2048
         kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
         kwargs["max_tokens"] = max_tokens
-    elif isinstance(cfg_val, str):
-        kwargs["extra_headers"] = {"anthropic-beta": "effort-2025-11-24"}
-        kwargs["extra_body"] = {"output_config": {"effort": cfg_val}}
-        kwargs["max_tokens"] = 60000
 
     def _solve(p: str) -> ModelResponse:
         kw = kwargs.copy()
