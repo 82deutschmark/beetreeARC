@@ -58,8 +58,8 @@ def call_gemini(
             return chat.send_message(message)
 
     def _solve(p: str) -> ModelResponse:
-        # Construct explicit Part object to avoid Pydantic warnings and ValueErrors
-        message = types.Part(text=p)
+        # Pass raw string to avoid Pydantic warnings; SDK handles wrapping
+        message = p
         response = run_with_retry(lambda: _run_chat(message), _should_retry)
         
         try:
@@ -81,7 +81,7 @@ def call_gemini(
     def _explain(p: str, prev_resp: ModelResponse) -> Optional[ModelResponse]:
         try:
             # Chat object maintains history automatically
-            message = types.Part(text=p)
+            message = p
             response = run_with_retry(lambda: _run_chat(message), _should_retry)
             
             text_parts = []

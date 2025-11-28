@@ -46,13 +46,13 @@ def main() -> None:
                 pass
 
         # Check if it is a task ID
-        candidate_path = Path("data/arc-agi-2-training") / f"{task_source}.json"
+        candidate_path = Path("data/arc-agi-2-evaluation") / f"{task_source}.json"
         if candidate_path.exists():
             task_paths = [candidate_path]
             dataset_name = task_source
         else:
             raise RuntimeError(
-                f"Input '{task_source}' is not a .json file and not a valid Task ID in data/arc-agi-2-training/"
+                f"Input '{task_source}' is not a .json file and not a valid Task ID in data/arc-agi-2-evaluation/"
             )
 
     print_table_header()
