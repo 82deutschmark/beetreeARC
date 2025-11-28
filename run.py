@@ -79,7 +79,9 @@ def run_single_model(model_name, prompt, test_example, openai_client, anthropic_
         print(f"{prefix} Initiating call...")
 
     cost = 0.0
+    duration = 0.0
     try:
+        start_ts = time.perf_counter()
         # Call Model
         response = call_model(
             openai_client=openai_client,
@@ -90,6 +92,7 @@ def run_single_model(model_name, prompt, test_example, openai_client, anthropic_
             return_strategy=False,
             verbose=verbose
         )
+        duration = time.perf_counter() - start_ts
         
         # Calculate cost
         try:
@@ -120,7 +123,8 @@ def run_single_model(model_name, prompt, test_example, openai_client, anthropic_
                 "model": model_name,
                 "grid": predicted_grid,
                 "is_correct": is_correct,
-                "cost": cost
+                "cost": cost,
+                "duration": duration
             }
                     
         except ValueError as e:
@@ -131,7 +135,8 @@ def run_single_model(model_name, prompt, test_example, openai_client, anthropic_
                 "model": model_name,
                 "grid": None, # Failed parse
                 "is_correct": False,
-                "cost": cost
+                "cost": cost,
+                "duration": duration
             }
 
     except Exception as e:
@@ -161,6 +166,7 @@ def main():
     parser.add_argument("--workers", type=int, default=10, help="Number of parallel workers (default: 10)")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--models", type=str, help="Comma-separated list of models to run")
+    parser.add_argument("--hint", type=str, default=None, help="Optional hint to provide to the model")
     
     args = parser.parse_args()
 
@@ -230,7 +236,7 @@ def main():
     test_example = task.test[test_idx]
 
     # Build Prompt
-    prompt = build_prompt(task.train, test_example)
+    prompt = build_prompt(task.train, test_example, strategy=args.hint)
 
     total_calls = len(models_to_run)
     print(f"Starting parallel execution for {total_calls} models...")
@@ -350,12 +356,12 @@ def main():
     print(f"Total Duration: {total_duration:.2f}s")
     print(f"Total Cost: ${total_cost:.4f}")
     
-    # Breakdown cost
-    print("Cost Breakdown:")
-    # We sort results by cost for cleaner output, or just original order. Let's use original order but grouped by model maybe?
-    # Or just list them as they finished (which is what all_results has roughly)
+    # Breakdown cost and time
+    print("Breakdown:")
     for res in all_results:
-        print(f" - {res['model']}: ${res.get('cost', 0.0):.4f}")
+        cost_val = res.get('cost', 0.0)
+        dur_val = res.get('duration', 0.0)
+        print(f" - {res['model']}: ${cost_val:.4f} ({dur_val:.2f}s)")
         
     print("\n--- Debug Info ---")
     if not top_groups:
