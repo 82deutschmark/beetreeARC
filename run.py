@@ -167,6 +167,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--models", type=str, help="Comma-separated list of models to run")
     parser.add_argument("--hint", type=str, default=None, help="Optional hint to provide to the model")
+    parser.add_argument("--trigger-deep-thinking", action="store_true", help="Append a deep thinking procedure to the prompt.")
     
     args = parser.parse_args()
 
@@ -236,7 +237,7 @@ def main():
     test_example = task.test[test_idx]
 
     # Build Prompt
-    prompt = build_prompt(task.train, test_example, strategy=args.hint)
+    prompt = build_prompt(task.train, test_example, strategy=args.hint, trigger_deep_thinking=args.trigger_deep_thinking)
 
     total_calls = len(models_to_run)
     print(f"Starting parallel execution for {total_calls} models...")
