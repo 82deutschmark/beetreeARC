@@ -169,7 +169,7 @@ Result: 🟢 Solved (luck? we may just have stumbled upon the ansswer)
 
 Let's rerun this with a deeper search to see how much of luck this truly was:
 
-Result: ???
+Result: 🔴 Failed (no solution present)
 
 
 # dd6b8c4b
