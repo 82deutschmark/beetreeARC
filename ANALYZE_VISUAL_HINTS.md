@@ -117,6 +117,20 @@ The following are hints extracted by a model:
 
 Result: 🔴 Failed (no solution present)
 
+Also the following hints are done by a model:
+```
+- The transformation focuses on internal black holes of colored outline shapes, not on their borders or positions.
+- Those holes are filled or expanded using colors that are already present elsewhere, sometimes the same as the outline and sometimes a different “partner” color.
+- Interactions between shapes and nearby color tokens appear to steer which cavities are filled and which colors are used, and filled regions can merge across neighboring shapes.
+- The global grid layout stays fixed; the puzzle is about recoloring and growing interior regions, not moving or deleting shapes.
+```
+
+Result: 🟢 Solved (luck? we may just have stumbled upon the ansswer)
+
+Let's rerun this with a deeper search to see how much of luck this truly was:
+
+Result: ???
+
 
 # dd6b8c4b
 
