@@ -99,3 +99,12 @@ It seems that attempting to trigger deeper thinking does not actually yield any 
 The models does some reasoning better based on images. Therefore we should either supply the images directly to the model, or do it in two stages to extract new insights through an image-only prompt that we then supply to a second stage text-only prompt that solves the problem.
 
 Testing supplying the images directly using different types of generated images does not seem to be helpful in solving the harder problems.
+
+### Visual Hints
+[Visual Hints Analysis](ANALYZE_VISUAL_HINTS.md)
+
+With explicit but condensed solution instructions there is a material improvement in performance (~5pp) of which maybe half stays even with condensed hints that plausibly could be deduced in some general way.
+
+It is very hard to extract hints that are non-obvious. The observations / transformations that I manage to extract are most of the time only 80% of the solution, and the missing ~20% are the "gotchas" that the models really need to move the needle - they already know "the 80%".
+
+Thereby, it doesn't seem that the hints are truly helping.
