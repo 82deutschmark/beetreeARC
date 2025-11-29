@@ -92,3 +92,10 @@ To ensure the precision truly approaches 100% I'm going to add in that the solut
 [Deep Think Trigger Analysis](https://github.com/beetree/ARC-AGI/blob/main/ANALYSIS_DEEP_THINK_TRIGGER.md)
 
 It seems that attempting to trigger deeper thinking does not actually yield any deeper thinking. The models themselves already trigger a very deep (deepest possible?) think by themselves.
+
+### Multi modal, adding images
+[Multi modal, adding images Analysis](ANALYZE_MULTIMODAL_IMAGES.md)
+
+The models does some reasoning better based on images. Therefore we should either supply the images directly to the model, or do it in two stages to extract new insights through an image-only prompt that we then supply to a second stage text-only prompt that solves the problem.
+
+Testing supplying the images directly using different types of generated images does not seem to be helpful in solving the harder problems.
