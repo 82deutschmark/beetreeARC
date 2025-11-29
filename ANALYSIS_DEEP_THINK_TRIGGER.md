@@ -1,6 +1,6 @@
 The depth of the thinking is variable with many of these models. If I properly prompt them, they may think more deeply.
 
-Adding this prompt:
+Appending this to the prompt:
 ```
   PROTOCOL OVERRIDE: ENGAGE ARC NEURO-SYMBOLIC LOGIC ENGINE
 
