@@ -61,6 +61,26 @@ Condensed solution: `The boat (#0) must travel through water (#1) across the lan
 
 Result: 🔴 Failed (solution there, but picked wrong answer)
 
+Model generated hints 1:
+```
+1. Objects: Blue structures (either 1D paths or 2D areas), Red square markers, and Black square markers on a Green grid.
+2. The Change: The Black marker relocates to a new position on the Blue structure, which is determined by whether the Blue structure is a 1D path or a 2D area, and if it is a path, whether it is symmetric.
+3. The Rule: If the Blue structure is a 2D area, move the Black marker to its geometric center; otherwise, if the Blue structure is a 1D path, move the Black marker to its center of symmetry if the path is symmetric, or to the Red marker's location if the path is asymmetric.
+```
+
+Result: 🔴 Failed (no solution present)
+
+Model generated hints 2:
+```
+- Each grid contains a maze‑like blue/green structure with a single red marker and a single black marker positioned along a connected route.
+- The transformation moves the black cluster along that route, toward or between the two original endpoints.
+- The red cluster is a static anchor: it gets overwritten, left alone, or thickened, but doesn’t travel.
+- The underlying maze is preserved; only the special colored markers (red/black) change position and sometimes size.
+```
+
+Result: 🔴 Failed (no solution present)
+
+
 # 67e490f4
 
 Explicit solution:
@@ -75,6 +95,24 @@ Condensed solution: `A large holed rectangle becomes the output, with each gap f
 
 Result: 🔴 Failed (no solution present)
 
+Model generated hints 1:
+```
+1. Objects: A 9x9 reference structure and scattered multi-colored noise elements (pixels and polyominoes).
+2. The Change: The input is synthesized into a 9x9 symmetrical glyph where the background color is inherited from the reference structure's main color, and the foreground pattern visualizes the noise population using a template style determined by the noise complexity (simple vs. complex shapes).
+3. The Rule: Synthesize a 9x9 symmetrical glyph by adopting the dominant color of the reference structure as the background, selecting a visualization template based on the complexity of the noise shapes (pixel-only vs. varied), and populating the template features with salient colors derived from the noise statistics.
+```
+
+Result: 🔴 Failed (no solution present)
+
+Model generated hints 2:
+```
+- Each input has one large corner object and many small scattered motifs; the large object’s color becomes the output background.
+- The output discards original positions and constructs a new, perfectly centered and symmetric icon.
+- The icon’s structural layout (cross, ring, corners, side midpoints) is a simplified echo of the large corner object’s structure.
+- A subset of colors from the scattered small shapes is chosen and assigned to specific roles in this icon; all other colors are dropped.
+```
+
+Result: 🔴 Failed (no solution present)
 
 
 # aa4ec2a5
@@ -153,3 +191,21 @@ Very condensed solution: `Move #9 to the square avoiding walls, closest first`
 
 Result: 🔴 Failed (solution was present, and with a higher effort setting probably would have been found)
 
+Model generated hints 1:
+```
+1. Objects: A central 3x3 Core (Red, Green, or Maroon pixels), Pink pixels (forming concentric shapes), Maroon pixels (scattered noise), and an Orange background grid.
+2. The Change: The input is transformed into one of three standardized configurations based on the presence and completeness of the Pink shapes, which dictates changes to the Core and the handling of Maroon noise.
+3. The Rule: Classify the input based on the Pink pixels: if they form complete 5x5 and 7x7 concentric squares, keep the input unchanged; if Pink pixels are present but incomplete, replace the central 5x5 area with a 3x3 Maroon core hugged by a Pink L-shape at the bottom-left, retaining the exterior; if no Pink pixels exist, replace the central 3x3 area with a specific Red/Green/Maroon cross pattern and clear the exterior to Orange.
+```
+
+Result: 🔴 Failed (no solution present)
+
+Model generated hints 2:
+```
+- The transformation is centered on the green+red core, which acts as the anchor for all modifications.
+- Scattered maroon pixels are suppressed and consolidated into a compact cluster adjacent to or inside the region around this core.
+- Magenta lines, when present, are simplified to just enough of a frame to relate to the central structure; distant segments are dropped.
+- The background stays untouched; the operation is about reorganizing and recoloring the non-background colors into a single, more coherent central object.
+```
+
+Result: 🔴 Failed (no solution present)
