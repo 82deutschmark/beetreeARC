@@ -21,6 +21,15 @@ Very condensed solution: `Marker symbols generate shapes in output. Shapes remov
 
 Result: 🟢 Solved (shaky but still passed)
 
+The following are hints extracted by a model:
+```
+*   **Objects:** Specific 3x3 hollow square shapes (frames) colored Yellow or Blue, connected clusters of pixels (contiguous groups larger than 1x1), and isolated single pixels (Input); 3x3 hollow square motifs tiled in patterns (Output).
+*   **The Change:** The input grid is entirely replaced by one of four predefined global tiling patterns, where the specific pattern is selected based on the structural configuration of the elements present in the input.
+*   **The Rule:** Select the output tiling pattern based on a prioritized hierarchy of input structures: if a Yellow 3x3 hollow square is present, use the Monochromatic Yellow pattern; otherwise, if a Blue 3x3 hollow square is present, use the Blue/Yellow Checkerboard pattern; otherwise, if any connected cluster of pixels (size > 1) is present, use the predefined 3-color complex pattern; otherwise (if only isolated pixels are present), use the predefined 4-color fractal pattern.
+```
+
+Result: 🔴 Failed (no solution present)
+
 
 # 332f06d7
 
@@ -83,6 +92,17 @@ Result: 🟢 Solved (somewhat solid, two competing major solutions)
 Very condensed solution: `Use legend to color the holes in the objects`
 
 Result: 🟢 Solved (very shaky)
+
+
+The following are hints extracted by a model:
+```
+*   **Objects:** Contiguous groups of same-colored pixels (shapes) on a black grid.
+*   **The Change:** Each shape is solidified by filling its bounding box, while its internal holes (enclosed black regions) are either preserved or shrunk by one layer (eroded) if they are large enough to still exist after shrinking.
+*   **The Rule:** For each colored shape, fill its axis-aligned bounding box with its color, but preserve its internal holes; however, apply morphological erosion (removing the outer layer of pixels) to a hole if and only if the erosion does not completely eliminate the hole.
+```
+
+Result: 🔴 Failed (no solution present)
+
 
 # dd6b8c4b
 
