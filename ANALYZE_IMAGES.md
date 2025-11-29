@@ -40,19 +40,20 @@ I have seen multimodality help in some cases, but it's not consistent and in som
 
 This problem gets solved by my text-only solver every 1 out of 4 runs or so. It's a hard problem.
 
-64efde09_cartoon.png: Failed
-64efde09_with_test_precise.png: Failed
-64efde09_precise.png: Failed
-64efde09_first_pair_precise.png: Failed
+- 64efde09_cartoon.png: Failed
+- 64efde09_with_test_precise.png: Failed
+- 64efde09_precise.png: Failed
+- 64efde09_first_pair_precise.png: Failed
 
 ## 332f06d7
 
 This is a problem that my solver pretty much can't solve, or possibly solves very rarely.
 
-332f06d7_cartoon.png: Failed
-332f06d7_precise.png: Failed
-332f06d7_first_pair_precise.png: Failed
-332f06d7_with_test_precise.png: Failed
+- 332f06d7_cartoon.png: Failed
+- 332f06d7_precise.png: Failed
+- 332f06d7_first_pair_precise.png: Failed
+- 332f06d7_with_test_precise.png: Failed
+
 
 
 
