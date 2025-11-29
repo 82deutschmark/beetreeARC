@@ -1,6 +1,8 @@
-# dfadab01
+# Overview
 
-Without any hint (at highest thinking): 🔴 Failed
+Going to go deep into the six problems below to assess of whether hints can help solve them. All these six problems are currently unsolved by a ~medium effort thinking with my current methodology.
+
+# dfadab01
 
 Explicit solution:
 ```
@@ -15,10 +17,12 @@ Condensed solution: `Each marker symbol generates its corresponding shape unless
 
 Result: 🟢 Solved (solid)
 
+Very condensed solution: `Marker symbols generate shapes in output. Shapes removed if already in input.`
+
+Result: 🟢 Solved (shaky but still passed)
+
 
 # 332f06d7
-
-Without any hint (at highest thinking): 🔴 Failed
 
 Explicit solution:
 ```
@@ -33,8 +37,6 @@ Condensed solution: `The boat (#0) must travel through water (#1) across the lan
 Result: 🔴 Failed (solution there, but picked wrong answer)
 
 # 67e490f4
-
-Without any hint (at highest thinking): 🔴 Failed
 
 Explicit solution:
 ```
@@ -52,8 +54,6 @@ Result: 🔴 Failed (no solution present)
 
 # aa4ec2a5
 
-Without any hint (at highest thinking): 🔴 Failed
-
 Explicit solution:
 ```
 - There are #1 objects. The objects can be solid or they can have a hole in them.
@@ -66,8 +66,6 @@ This is weird. The exact same prompt yields the right solution by ChatGPT 5.1 Pr
 
 
 # dbff022c
-
-Without any hint (at highest thinking): 🔴 Failed
 
 Explicit solution:
 ```
@@ -82,9 +80,11 @@ Condensed solution: `A 2×X edge legend maps each object’s border color to the
 
 Result: 🟢 Solved (somewhat solid, two competing major solutions)
 
-# dd6b8c4b
+Very condensed solution: `Use legend to color the holes in the objects`
 
-Without any hint (at highest thinking): 🔴 Failed
+Result: 🟢 Solved (very shaky)
+
+# dd6b8c4b
 
 Explicit solution:
 ```
@@ -98,4 +98,8 @@ Result: 🟢 Solved (solid)
 Condensed solution: `Squares labeled #9 move individually across ground (#7) toward the target square (#3 with #2 center), stopping at walls (#6) and filling the target with the closest #9s until no more can fit.`
 
 Result: 🟢 Solved (solid)
+
+Very condensed solution: `Move #9 to the square avoiding walls, closest first`
+
+Result: 🔴 Failed (solution was present, and with a higher effort setting probably would have been found)
 
