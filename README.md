@@ -89,7 +89,7 @@ When saying something is verified it truly is correct ~94% of the time (precisio
 To ensure the precision truly approaches 100% I'm going to add in that the solution needs to be run twice with matching grids together with a perfect score on the test data with synthetic expansion. Later on I'll train a model to actually predict the likelihood of a true PASS based on all the testing done up to then.
 
 ### Deep Think Trigger
-[Deep Think Trigger Analysis](https://github.com/beetree/ARC-AGI/blob/main/ANALYSIS_DEEP_THINK_TRIGGER.md)
+[Deep Think Trigger Analysis](https://github.com/beetree/ARC-AGI/blob/main/ANALYZE_DEEP_THINK_TRIGGER.md)
 
 It seems that attempting to trigger deeper thinking does not actually yield any deeper thinking. The models themselves already trigger a very deep (deepest possible?) think by themselves.
 
