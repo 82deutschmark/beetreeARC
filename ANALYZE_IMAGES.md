@@ -32,8 +32,27 @@ The models does some reasoning better based on images. Therefore we should eithe
 <img width="720" height="1044" alt="8f3a5a89_with_test_precise" src="https://github.com/user-attachments/assets/f8d37002-5312-46b7-82b4-8b578785365d" />
 
 
+# Performance - single multimodal prompt
 
+I have seen multimodality help in some cases, but it's not consistent and in somewhat structured testingi I can't really recreate it
 
+## 64efde09
+
+This problem gets solved by my text-only solver every 1 out of 4 runs or so. It's a hard problem.
+
+64efde09_cartoon.png: Failed
+64efde09_with_test_precise.png: Failed
+64efde09_precise.png: Failed
+64efde09_first_pair_precise.png: Failed
+
+## 332f06d7
+
+This is a problem that my solver pretty much can't solve, or possibly solves very rarely.
+
+332f06d7_cartoon.png: Failed
+332f06d7_precise.png: Failed
+332f06d7_first_pair_precise.png: Failed
+332f06d7_with_test_precise.png: Failed
 
 
 
