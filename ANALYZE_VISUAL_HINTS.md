@@ -42,7 +42,9 @@ Result: 🔴 Failed (but a solution was present!)
 
 There is hope, let's rerun this with a deeper search (same hint):
 
-Result: ???
+Result: 🔴 Failed (no solution present)
+
+There might not be any hope after all :)
 
 
 # 332f06d7
