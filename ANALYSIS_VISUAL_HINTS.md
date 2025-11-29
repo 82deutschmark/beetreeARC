@@ -11,6 +11,11 @@ Explicit solution:
 ```
 Result: Solved (solid)
 
+Condensed solution: `Each marker symbol generates its corresponding shape unless that shape already appears with its confirming marker (e.g., bottom-right), in which case the shape and marker are removed before applying any remaining marker-to-shape expansions.`
+
+Result: Solved (solid)
+
+
 # 332f06d7
 
 Without any hint (at highest thinking): Failed
@@ -23,6 +28,9 @@ Explicit solution:
 ```
 Result: Solved (Luck?)
 
+Condensed solution: `The boat (#0) must travel through water (#1) across the land–water grid (#3 = land) toward its destination (#2), moving as far as possible until either reaching #2 or becoming stuck when the water path is too narrow.
+
+Result: Failed (solution there, but picked wrong answer)
 
 # 67e490f4
 
@@ -36,6 +44,10 @@ Explicit solution:
 ```
 Result: Solved (solid)
 
+Condensed solution: `A large holed rectangle becomes the output, with each gap filled by the small object shape that fits it—possibly after rotation—using the most frequent matching object color when multiple candidates fit.`
+
+Result: Failed (no solution present)
+
 
 
 # aa4ec2a5
@@ -48,7 +60,7 @@ Explicit solution:
 - All objects should have a #2 border added around them
 - Any object with a hole in them should have their interior color changed from #1 to #8, and the hole should be changed from #4 to #6
 ```
-Result: Failed
+Result: Failed (no solution present)
 
 This is weird. The exact same prompt yields the right solution by ChatGPT 5.1 Pro in 9m49s. Gemini 3 (without deep think) fails, whereas Gemini 3 with Deep Think does solve it.
 
@@ -66,6 +78,9 @@ Explicit solution:
 ```
 Result: Solved (solid)
 
+Condensed solution: `A 2×X edge legend maps each object’s border color to the color that should fill its holes, using the outer legend color to identify the object and the inner legend color to determine the hole-fill color.`
+
+Result: Solved (somewhat solid, two competing major solutions)
 
 # dd6b8c4b
 
@@ -80,4 +95,7 @@ Explicit solution:
 ```
 Result: Solved (solid)
 
+Condensed solution: `Squares labeled #9 move individually across ground (#7) toward the target square (#3 with #2 center), stopping at walls (#6) and filling the target with the closest #9s until no more can fit.`
+
+Result: Solved (solid)
 
