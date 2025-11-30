@@ -9,11 +9,11 @@ from src.image_generation import generate_and_save_image
 from src.models import call_model
 from src.tasks import Task
 
-def generate_hint(task: Task, task_id: str, hint_model_arg: str, verbose: bool) -> Optional[str]:
+def generate_hint(task: Task, image_path: str, hint_model_arg: str, verbose: bool) -> Optional[str]:
     """
     Generates a hint for a given task by analyzing an image of the training examples.
     """
-    image_path = generate_and_save_image(task, task_id, "logs")
+    generate_and_save_image(task, image_path)
 
     prompt = """You are analyzing a single ARC-AGI training example presented as an image.
 The image shows one or more **input → output** grid pairs.

@@ -10,6 +10,8 @@ from anthropic import Anthropic
 from openai import OpenAI
 from google import genai
 import certifi
+import json
+import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.utils import format_grid
 
@@ -32,7 +34,6 @@ DEFAULT_MODELS = [
     "gpt-5.1-low"
 ]
 
-# Model hierarchy for sorting (Higher value = Higher priority)
 MODEL_WEIGHTS = {
     "claude-opus-4.5-thinking-60000": 16,
     "gemini-3-high": 15,
@@ -53,29 +54,17 @@ MODEL_WEIGHTS = {
 }
 
 def find_task_path(task_id: str) -> Path:
-    """Searches for the task JSON file in data/arc-agi-2-evaluation/. """
-    # Handle case where user provides full path or filename
     if task_id.endswith(".json"):
         p = Path(task_id)
         if p.exists():
             return p
-        # If it's just a filename, assume it's in the eval dir
         task_id = p.stem
-
-    # Look in arc-agi-2-evaluation
     candidate = Path("data/arc-agi-2-evaluation") / f"{task_id}.json"
-
     if candidate.exists():
         return candidate
-    
     raise FileNotFoundError(f"Task file for '{task_id}' not found in data/arc-agi-2-evaluation/.")
 
 def run_single_model(model_name, prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path=None):
-    """
-    Helper function to run a single model and return result data.
-    Verbose logs are printed only if verbose=True.
-    Errors are always printed to stderr.
-    """
     prefix = f"[{model_name}]"
     if verbose:
         print(f"{prefix} Initiating call...")
@@ -84,9 +73,9 @@ def run_single_model(model_name, prompt, test_example, openai_client, anthropic_
 
     cost = 0.0
     duration = 0.0
+    full_response = ""
     try:
         start_ts = time.perf_counter()
-        # Call Model
         response = call_model(
             openai_client=openai_client,
             anthropic_client=anthropic_client,
@@ -98,18 +87,17 @@ def run_single_model(model_name, prompt, test_example, openai_client, anthropic_
             verbose=verbose
         )
         duration = time.perf_counter() - start_ts
+        full_response = response.text
         
-        # Calculate cost
         try:
             model_config = parse_model_arg(model_name)
             cost = calculate_cost(model_config, response)
         except Exception:
-            pass # Ignore cost calculation errors to ensure flow continues
+            pass
 
         if verbose:
             print(f"{prefix} Response received.")
 
-        # Process Result
         grid_text = response.text
         
         try:
@@ -124,45 +112,201 @@ def run_single_model(model_name, prompt, test_example, openai_client, anthropic_
                     print(f"\n{prefix} Predicted Grid:")
                     print(grid_text)
             
-            return {
-                "model": model_name,
-                "grid": predicted_grid,
-                "is_correct": is_correct,
-                "cost": cost,
-                "duration": duration
-            }
+            return {"model": model_name, "grid": predicted_grid, "is_correct": is_correct, "cost": cost, "duration": duration, "prompt": prompt, "full_response": full_response}
                     
         except ValueError as e:
             if verbose:
                 print(f"{prefix} Result: FAIL (Parse Error: {e})")
                 print(f"\n{prefix} Raw Output:\n{grid_text}")
-            return {
-                "model": model_name,
-                "grid": None, # Failed parse
-                "is_correct": False,
-                "cost": cost,
-                "duration": duration
-            }
+            return {"model": model_name, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": full_response}
 
     except Exception as e:
-        # ALWAYS print errors to stderr
         print(f"{prefix} Error during execution: {e}", file=sys.stderr)
-        return None
+        return {"model": model_name, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": str(e)}
 
 def get_group_sort_key(group):
-    """
-    Returns a tuple for sorting: (count, max_model_weight).
-    """
     count = group['count']
-    
-    # Find the max weight among all models in this group
     max_weight = 0
     for model in group['models']:
-        weight = MODEL_WEIGHTS.get(model, 0) # Default to 0 if unknown
+        weight = MODEL_WEIGHTS.get(model, 0)
         if weight > max_weight:
             max_weight = weight
-            
     return (count, max_weight)
+
+def is_solved(candidates_object) -> float:
+    return 0.8
+
+def pick_solution(candidates_object):
+    sorted_groups = sorted(candidates_object.values(), key=get_group_sort_key, reverse=True)
+    
+    print("\n" + "="*40)
+    print("FINAL OUTCOME")
+    print("="*40)
+    
+    is_solved_flag = False
+    top_groups = sorted_groups[:2]
+    
+    if len(top_groups) > 0 and top_groups[0]["is_correct"]:
+        is_solved_flag = True
+    elif len(top_groups) > 1 and top_groups[1]["is_correct"]:
+        is_solved_flag = True
+        
+    if is_solved_flag:
+        print("Outcome: SOLVED")
+    else:
+        print("Outcome: FAILED")
+
+    print("\n--- Debug Info ---")
+    if not top_groups:
+        print("No solutions generated.")
+    else:
+        for i, group in enumerate(top_groups):
+            print(f"Group {i+1}: Count={group['count']}, Correct={group['is_correct']}")
+            print(f"  Models: {', '.join(group['models'])}")
+            
+    return top_groups, is_solved_flag
+
+def run_models_in_parallel(models_to_run, prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path=None):
+    all_results = []
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_model = {executor.submit(run_single_model, model_name, prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path): model_name for model_name in models_to_run}
+        for future in as_completed(future_to_model):
+            res = future.result()
+            if res:
+                all_results.append(res)
+    return all_results
+
+def run_solver_mode(task_id: str, test_index: int, verbose: bool):
+    print("Solver mode activated.")
+    setup_logging(verbose)
+    log_data = {}
+    log_path = Path("logs") / f"{task_id}_{test_index}.json"
+
+    try:
+        task_path = find_task_path(task_id)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    openai_key, claude_key, google_key = get_api_keys()
+    http_client = httpx.Client(timeout=3600.0)
+    openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
+    anthropic_client = Anthropic(api_key=claude_key, http_client=http_client) if claude_key else None
+    google_client = genai.Client(api_key=google_key) if google_key else None
+
+    try:
+        task = load_task(task_path)
+    except Exception as e:
+        print(f"Error loading task: {e}", file=sys.stderr)
+        http_client.close()
+        sys.exit(1)
+
+    test_idx = test_index - 1
+    if test_idx < 0 or test_idx >= len(task.test):
+        print(f"Error: Test index {test_index} is out of range.", file=sys.stderr)
+        http_client.close()
+        sys.exit(1)
+    test_example = task.test[test_idx]
+
+    candidates_object = {}
+
+    def process_results(results, step_log):
+        nonlocal candidates_object
+        initial_solutions = len(candidates_object)
+        for res in results:
+            if res:
+                run_key = f"{res['model']}_{time.time()}"
+                step_log[run_key] = {
+                    "Full raw LLM call": res["prompt"],
+                    "Full raw LLM response": res["full_response"],
+                    "Extracted grid": res["grid"],
+                }
+                if res["grid"] is not None:
+                    grid_tuple = tuple(tuple(row) for row in res["grid"])
+                    if grid_tuple not in candidates_object:
+                        candidates_object[grid_tuple] = {"grid": res["grid"], "count": 0, "models": [], "is_correct": res["is_correct"]}
+                    candidates_object[grid_tuple]["count"] += 1
+                    candidates_object[grid_tuple]["models"].append(res["model"])
+        new_solutions = len(candidates_object) - initial_solutions
+        print(f"Found {new_solutions} new unique solutions.")
+
+    # STEP 1
+    print("\n--- STEP 1: Initial model run ---")
+    log_data["STEP 1"] = {}
+    models_step1 = ["claude-sonnet-4.5-no-thinking"] * 2 + ["claude-opus-4.5-no-thinking"] * 2 + ["gpt-5.1-none"] * 2 + ["gemini-3-low"] * 2
+    print(f"Running {len(models_step1)} models...")
+    prompt_step1 = build_prompt(task.train, test_example)
+    results_step1 = run_models_in_parallel(models_step1, prompt_step1, test_example, openai_client, anthropic_client, google_client, verbose)
+    process_results(results_step1, log_data["STEP 1"])
+
+    # STEP 2
+    print("\n--- STEP 2: First check ---")
+    solved_prob = is_solved(candidates_object)
+    log_data["STEP 2"] = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "is_solved_prob": solved_prob}
+    if solved_prob > 0.9:
+        print("is_solved() > 0.9, moving to STEP FINISH.")
+        picked_solutions, result = pick_solution(candidates_object)
+        log_data["STEP FINISH"] = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
+        http_client.close()
+        with open(log_path, "w") as f:
+            json.dump(log_data, f, indent=4, default=lambda o: '<not serializable>')
+        return
+
+    # STEP 3
+    print("\n--- STEP 3: Second model run ---")
+    log_data["STEP 3"] = {}
+    models_step3 = ["claude-sonnet-4.5-no-thinking"] * 2 + ["claude-opus-4.5-no-thinking"] * 2 + ["gpt-5.1-none"] * 2
+    print(f"Running {len(models_step3)} models...")
+    prompt_step3 = build_prompt(task.train, test_example)
+    results_step3 = run_models_in_parallel(models_step3, prompt_step3, test_example, openai_client, anthropic_client, google_client, verbose)
+    process_results(results_step3, log_data["STEP 3"])
+
+    # STEP 4
+    print("\n--- STEP 4: Second check ---")
+    solved_prob = is_solved(candidates_object)
+    log_data["STEP 4"] = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "is_solved_prob": solved_prob}
+    if solved_prob > 0.9:
+        print("is_solved() > 0.9, moving to STEP FINISH.")
+        picked_solutions, result = pick_solution(candidates_object)
+        log_data["STEP FINISH"] = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
+        http_client.close()
+        with open(log_path, "w") as f:
+            json.dump(log_data, f, indent=4, default=lambda o: '<not serializable>')
+        return
+
+    # STEP 5
+    print("\n--- STEP 5: Final model runs ---")
+    log_data["STEP 5"] = {"trigger-deep-thinking": {}, "image": {}, "generate-hint": {}}
+    models_step5 = ["claude-sonnet-4.5-no-thinking"] * 2 + ["claude-opus-4.5-no-thinking"] * 2 + ["gpt-5.1-none"] * 2
+    
+    print(f"Running {len(models_step5)} models with deep thinking...")
+    prompt_deep = build_prompt(task.train, test_example, trigger_deep_thinking=True)
+    results_deep = run_models_in_parallel(models_step5, prompt_deep, test_example, openai_client, anthropic_client, google_client, verbose)
+    process_results(results_deep, log_data["STEP 5"]["trigger-deep-thinking"])
+    
+    print(f"Running {len(models_step5)} models with image...")
+    image_path = f"logs/{task_id}_{test_index}_step5_image.png"
+    generate_and_save_image(task, image_path)
+    prompt_image = build_prompt(task.train, test_example, image_path=image_path)
+    results_image = run_models_in_parallel(models_step5, prompt_image, test_example, openai_client, anthropic_client, google_client, verbose, image_path=image_path)
+    process_results(results_image, log_data["STEP 5"]["image"])
+
+    print(f"Running {len(models_step5)} models with generated hint...")
+    hint_image_path = f"logs/{task_id}_{test_index}_step5_generate_hint.png"
+    hint = generate_hint(task, hint_image_path, "gpt-5.1-none", verbose)
+    prompt_hint = build_prompt(task.train, test_example, strategy=hint)
+    results_hint = run_models_in_parallel(models_step5, prompt_hint, test_example, openai_client, anthropic_client, google_client, verbose)
+    process_results(results_hint, log_data["STEP 5"]["generate-hint"])
+
+    # STEP FINISH
+    print("\n--- STEP FINISH: Pick and print solution ---")
+    picked_solutions, result = pick_solution(candidates_object)
+    log_data["STEP FINISH"] = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
+    
+    with open(log_path, "w") as f:
+        json.dump(log_data, f, indent=4, default=lambda o: '<not serializable>')
+        
+    http_client.close()
 
 def main():
     parser = argparse.ArgumentParser(description="Run a single ARC task test case with multiple models in parallel.")
@@ -176,24 +320,21 @@ def main():
     parser.add_argument("--trigger-deep-thinking", action="store_true", help="Append a deep thinking procedure to the prompt.")
     parser.add_argument("--generate-hint", action="store_true", help="Generate a hint for the task using a separate model call.")
     parser.add_argument("--generate-hint-model", type=str, default="gpt-5.1-high", help="Model to use for generating hints.")
+    parser.add_argument("--solver", action="store_true", help="Enable solver mode.")
     
     args = parser.parse_args()
 
-    # Suppress Pydantic serialization warnings from google-genai SDK
-    # These are known harmless false positives due to SDK internal type mismatches
-    warnings.filterwarnings(
-        "ignore", 
-        message=r"Pydantic serializer warnings:", 
-        category=UserWarning
-    )
+    if args.solver:
+        run_solver_mode(args.task, args.test, args.verbose)
+        sys.exit(0)
 
-    # Determine models to run
+    warnings.filterwarnings("ignore", message=r"Pydantic serializer warnings:", category=UserWarning)
+
     if args.models:
         models_to_run = [m.strip() for m in args.models.split(",") if m.strip()]
     else:
         models_to_run = DEFAULT_MODELS
 
-    # Setup basic logging
     setup_logging(args.verbose)
 
     try:
@@ -202,28 +343,18 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Setup API keys
     openai_key, claude_key, google_key = get_api_keys()
     
     if not claude_key:
         print("Error: Anthropic API key not found.", file=sys.stderr)
         sys.exit(1)
-    
     if not openai_key:
         print("Warning: OpenAI API key not found. GPT-5.1 models will fail.", file=sys.stderr)
-
     if not google_key:
         print("Warning: Google API key not found. Gemini models will fail.", file=sys.stderr)
 
-    # Setup HTTP client (mirroring solver.py for robustness)
     os.environ["SSL_CERT_FILE"] = certifi.where()
-    http_client = httpx.Client(
-        timeout=3600.0,
-        transport=httpx.HTTPTransport(retries=3, verify=False),
-        limits=httpx.Limits(keepalive_expiry=3600),
-        verify=False
-    )
-
+    http_client = httpx.Client(timeout=3600.0, transport=httpx.HTTPTransport(retries=3, verify=False), limits=httpx.Limits(keepalive_expiry=3600), verify=False)
     anthropic_client = Anthropic(api_key=claude_key, http_client=http_client)
     openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
     google_client = genai.Client(api_key=google_key) if google_key else None
@@ -235,16 +366,13 @@ def main():
         http_client.close()
         sys.exit(1)
 
-    # Validate test index
     test_idx = args.test - 1
     if test_idx < 0 or test_idx >= len(task.test):
         print(f"Error: Test index {args.test} is out of range. Task has {len(task.test)} test cases.", file=sys.stderr)
         http_client.close()
         sys.exit(1)
-
     test_example = task.test[test_idx]
 
-    # Generate hint if requested
     hint = args.hint
     if args.generate_hint:
         print("Generating hint...")
@@ -254,12 +382,10 @@ def main():
         else:
             print("Warning: Failed to generate hint.")
 
-    # Generate image if requested
     image_path = None
     if args.image:
-        image_path = generate_and_save_image(task, args.task, "logs")
+        image_path = generate_and_save_image(task, f"logs/{args.task}_{args.test}_image.png")
 
-    # Build Prompt
     prompt = build_prompt(task.train, test_example, strategy=hint, image_path=image_path, trigger_deep_thinking=args.trigger_deep_thinking)
 
     total_calls = len(models_to_run)
@@ -268,25 +394,12 @@ def main():
     start_time = time.perf_counter()
 
     all_results = []
-    # Track which model corresponds to which future
     future_to_model = {}
-    # Track pending models (using list to handle duplicates correctly by index if needed, but for display names are fine)
-    # Actually, simple counting is robust. For specific names, we can map future -> name.
     pending_models_names = list(models_to_run) 
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         for model_name in models_to_run:
-            future = executor.submit(
-                run_single_model,
-                model_name,
-                prompt,
-                test_example,
-                openai_client,
-                anthropic_client,
-                google_client,
-                args.verbose,
-                image_path,
-            )
+            future = executor.submit(run_single_model, model_name, prompt, test_example, openai_client, anthropic_client, google_client, args.verbose, image_path)
             future_to_model[future] = model_name
         
         completed_count = 0
@@ -294,21 +407,17 @@ def main():
             completed_count += 1
             model_name = future_to_model[future]
             
-            # Remove one instance of this model name from pending list
             if model_name in pending_models_names:
                 pending_models_names.remove(model_name)
             
-            # Calculate elapsed time
             elapsed = time.perf_counter() - start_time
             
-            # Construct waiting list string (summarized if too long)
             waiting_str = ", ".join(pending_models_names)
             if len(waiting_str) > 50:
                 waiting_str = waiting_str[:47] + "..."
             if not waiting_str:
                 waiting_str = "(none)"
 
-            # Determine status
             status_str = "(Error)"
             res = None
             try:
@@ -320,10 +429,8 @@ def main():
                         status_str = "(No Grid)"
             except Exception as exc:
                 status_str = "(Error)"
-                # We print the exception detail to stderr but keep the main output clean
                 print(f"\nThread generated an exception: {exc}", file=sys.stderr)
 
-            # Progress format: Xs X/Y done ModelName (Status) Wait: ModelA, ModelB...
             print(f"{elapsed:.1f}s {completed_count}/{total_calls} done {model_name} {status_str} Wait: {waiting_str}")
 
             if res:
@@ -332,7 +439,6 @@ def main():
     http_client.close()
     total_duration = time.perf_counter() - start_time
 
-    # Group results and calc total cost
     grouped_solutions = {}
     total_cost = 0.0
     
@@ -340,23 +446,16 @@ def main():
         total_cost += res.get("cost", 0.0)
         
         if res["grid"] is None:
-            continue # Skip failed parses for grouping, but we counted cost
+            continue
             
-        # Make grid hashable
         grid_tuple = tuple(tuple(row) for row in res["grid"])
         
         if grid_tuple not in grouped_solutions:
-            grouped_solutions[grid_tuple] = {
-                "grid": res["grid"],
-                "count": 0,
-                "models": [],
-                "is_correct": res["is_correct"]
-            }
+            grouped_solutions[grid_tuple] = {"grid": res["grid"], "count": 0, "models": [], "is_correct": res["is_correct"]}
         
         grouped_solutions[grid_tuple]["count"] += 1
         grouped_solutions[grid_tuple]["models"].append(res["model"])
 
-    # Sort groups by count (descending) then by max model weight (descending)
     sorted_groups = sorted(grouped_solutions.values(), key=get_group_sort_key, reverse=True)
     
     print("\n" + "="*40)
@@ -364,8 +463,6 @@ def main():
     print("="*40)
     
     is_solved = False
-    
-    # Check top 2 groups (if they exist)
     top_groups = sorted_groups[:2]
     
     if len(top_groups) > 0 and top_groups[0]["is_correct"]:
@@ -377,11 +474,10 @@ def main():
         print("Outcome: SOLVED")
     else:
         print("Outcome: FAILED")
-
+    
     print(f"Total Duration: {total_duration:.2f}s")
     print(f"Total Cost: ${total_cost:.4f}")
     
-    # Breakdown cost and time
     print("Breakdown:")
     for res in all_results:
         cost_val = res.get('cost', 0.0)
@@ -392,12 +488,10 @@ def main():
     if not top_groups:
         print("No solutions generated.")
     else:
-        # Print top 2 groups
         for i, group in enumerate(top_groups):
             print(f"Group {i+1}: Count={group['count']}, Correct={group['is_correct']}")
             print(f"  Models: {', '.join(group['models'])}")
             
-        # Print any other correct groups
         for i in range(2, len(sorted_groups)):
             group = sorted_groups[i]
             if group['is_correct']:

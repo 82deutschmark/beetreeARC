@@ -43,10 +43,11 @@ def _draw_cartoon_grid(ax, grid, title):
                 ax.plot([c - 0.5, c - 0.5], [r - 0.5, r + 0.5], 
                         color=border_color, lw=border_width, zorder=10, path_effects=effects)
 
-def generate_and_save_image(task: Task, task_id: str, output_dir: str) -> str:
+def generate_and_save_image(task: Task, output_path: str) -> str:
     """
     Generates and saves a cartoon-style visualization of the training pairs for a given ARC task.
     """
+    output_dir = os.path.dirname(output_path)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -84,8 +85,7 @@ def generate_and_save_image(task: Task, task_id: str, output_dir: str) -> str:
             )
 
         gs.tight_layout(fig, pad=1.0)
-        output_filename = os.path.join(output_dir, f"{task_id}_cartoon.png")
-        plt.savefig(output_filename, dpi=DPI)
+        plt.savefig(output_path, dpi=DPI)
         plt.close(fig)
 
-    return output_filename
+    return output_path
