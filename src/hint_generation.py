@@ -9,7 +9,7 @@ from src.image_generation import generate_and_save_image
 from src.models import call_model
 from src.tasks import Task
 
-def generate_hint(task: Task, image_path: str, hint_model_arg: str, verbose: bool) -> Optional[str]:
+def generate_hint(task: Task, image_path: str, hint_model_arg: str, verbose: bool) -> dict:
     """
     Generates a hint for a given task by analyzing an image of the training examples.
     """
@@ -139,12 +139,16 @@ HINT_END
             print(response.text)
             print("------------------------------------")
         
-        # Extract the content between HINT_START and HINT_END
+        hint = None
         match = re.search(r"HINT_START(.*?)HINT_END", response.text, re.DOTALL)
         if match:
-            return match.group(1).strip()
-        else:
-            return None
+            hint = match.group(1).strip()
+            
+        return {
+            "hint": hint,
+            "prompt": prompt,
+            "full_response": response.text,
+        }
 
     finally:
         http_client.close()

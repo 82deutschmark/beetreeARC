@@ -26,9 +26,9 @@ from src.hint_generation import generate_hint
 
 # Constants
 DEFAULT_MODELS = [
-    "claude-sonnet-4.5-thinking-1024", 
     "claude-sonnet-4.5-thinking-1024",
-    "claude-opus-4.5-thinking-1024", 
+    "claude-sonnet-4.5-thinking-1024",
+    "claude-opus-4.5-thinking-1024",
     "claude-opus-4.5-thinking-1024",
     "gpt-5.1-low",
     "gpt-5.1-low"
@@ -255,7 +255,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool):
     # STEP 3
     print("\n--- STEP 3: Second model run ---")
     log_data["STEP 3"] = {}
-    models_step3 = ["claude-sonnet-4.5-no-thinking"] * 2 + ["claude-opus-4.5-no-thinking"] * 2 + ["gpt-5.1-none"] * 2
+    models_step3 = ["claude-opus-4.5-no-thinking"] * 2 + ["gpt-5.1-none"] * 2 + ["gemini-3-low"] * 2
     print(f"Running {len(models_step3)} models...")
     prompt_step3 = build_prompt(task.train, test_example)
     results_step3 = run_models_in_parallel(models_step3, prompt_step3, test_example, openai_client, anthropic_client, google_client, verbose)
@@ -277,7 +277,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool):
     # STEP 5
     print("\n--- STEP 5: Final model runs ---")
     log_data["STEP 5"] = {"trigger-deep-thinking": {}, "image": {}, "generate-hint": {}}
-    models_step5 = ["claude-sonnet-4.5-no-thinking"] * 2 + ["claude-opus-4.5-no-thinking"] * 2 + ["gpt-5.1-none"] * 2
+    models_step5 = ["claude-opus-4.5-no-thinking"] * 2 + ["gpt-5.1-none"] * 2 + ["gemini-3-low"] * 2
     
     print(f"Running {len(models_step5)} models with deep thinking...")
     prompt_deep = build_prompt(task.train, test_example, trigger_deep_thinking=True)
@@ -293,10 +293,16 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool):
 
     print(f"Running {len(models_step5)} models with generated hint...")
     hint_image_path = f"logs/{task_id}_{test_index}_step5_generate_hint.png"
-    hint = generate_hint(task, hint_image_path, "gpt-5.1-none", verbose)
-    prompt_hint = build_prompt(task.train, test_example, strategy=hint)
-    results_hint = run_models_in_parallel(models_step5, prompt_hint, test_example, openai_client, anthropic_client, google_client, verbose)
-    process_results(results_hint, log_data["STEP 5"]["generate-hint"])
+    hint_data = generate_hint(task, hint_image_path, "gpt-5.1-none", verbose)
+    if hint_data and hint_data["hint"]:
+        log_data["STEP 5"]["generate-hint"]["hint_generation"] = {
+            "Full raw LLM call": hint_data["prompt"],
+            "Full raw LLM response": hint_data["full_response"],
+            "Extracted hint": hint_data["hint"],
+        }
+        prompt_hint = build_prompt(task.train, test_example, strategy=hint_data["hint"])
+        results_hint = run_models_in_parallel(models_step5, prompt_hint, test_example, openai_client, anthropic_client, google_client, verbose)
+        process_results(results_hint, log_data["STEP 5"]["generate-hint"])
 
     # STEP FINISH
     print("\n--- STEP FINISH: Pick and print solution ---")
@@ -376,8 +382,9 @@ def main():
     hint = args.hint
     if args.generate_hint:
         print("Generating hint...")
-        hint = generate_hint(task, args.task, args.generate_hint_model, args.verbose)
-        if hint:
+        hint_data = generate_hint(task, f"logs/{args.task}_{args.test}_generate_hint.png", args.generate_hint_model, args.verbose)
+        if hint_data and hint_data["hint"]:
+            hint = hint_data["hint"]
             print(f"Generated hint: {hint}")
         else:
             print("Warning: Failed to generate hint.")
