@@ -53,7 +53,7 @@ def build_prompt(
         lines.append(f"Suggested Strategy: {strategy}")
     
     if image_path:
-        lines.append("Attached you'll also find an image representing the example input/output pairs.")
+        lines.append("Attached you'll find an image the show the input/output example pairs. Use this image to find objects, patterns and transformations")
 
     lines.append("Each grid cell is an integer 0-9 representing a color.")
     lines.append(

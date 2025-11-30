@@ -51,6 +51,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enable self-consistency verification using LOOCV on training examples.",
     )
+    parser.add_argument(
+        "--image",
+        action="store_true",
+        help="Generate an image for the task and include it in the prompt.",
+    )
     return parser.parse_args()
 
 def get_api_keys() -> tuple[Optional[str], Optional[str], Optional[str]]:

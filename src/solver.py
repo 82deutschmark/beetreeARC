@@ -20,6 +20,7 @@ from src.utils import (
     verify_prediction,
 )
 from src.logging import get_logger
+from src.image_generation import generate_and_save_image
 
 logger = get_logger("solver")
 
@@ -33,6 +34,7 @@ def solve_task(
     verbose: bool = False,
     return_strategy: bool = False,
     verify: bool = False,
+    image: bool = False,
 ) -> List[TaskResult]:
     # Create a thread-local HTTP client with insecure SSL and long timeouts
     # to prevent connection errors and timeouts in threaded environments.
@@ -55,12 +57,18 @@ def solve_task(
 
     try:
         task = load_task(task_path)
+
+        image_path = None
+        if image:
+            image_path = generate_and_save_image(task, task_path.stem, "logs")
+
         outcomes: List[TaskResult] = []
         for idx, test_example in enumerate(task.test, start=1):
             prompt = build_prompt(
                 task.train,
                 test_example,
                 strategy=strategy,
+                image_path=image_path,
             )
             
             success = False
@@ -89,6 +97,7 @@ def solve_task(
                     google_client,
                     prompt,
                     model_arg,
+                    image_path=image_path,
                     return_strategy=should_extract,
                     verbose=verbose,
                 )
@@ -123,6 +132,7 @@ def solve_task(
                             google_client,
                             prompt,
                             model_arg,
+                            image_path=image_path,
                             return_strategy=should_extract,
                             verbose=verbose,
                         )

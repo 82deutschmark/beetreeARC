@@ -74,6 +74,7 @@ def main() -> None:
                     args.verbose,
                     return_strategy=args.extract_strategy,
                     verify=args.verify,
+                    image=args.image,
                 )
                 future_to_path[future] = path
 
