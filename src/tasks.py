@@ -49,9 +49,6 @@ def build_prompt(
     lines = [
         "You are solving an ARC (Abstraction and Reasoning Corpus) task.",
     ]
-    if strategy:
-        lines.append(f"Suggested Strategy: {strategy}")
-    
     lines.append("Each grid cell is an integer 0-9 representing a color.")
     lines.append(
         "Use the solved examples to infer the transformation and apply it to the test input."
@@ -68,6 +65,11 @@ def build_prompt(
     lines.append("Test input:")
     lines.append(format_grid(test_example.input))
     lines.append("")
+
+    if strategy:
+        lines.append("Below are a few hints that you might find helpful:")
+        lines.append(strategy)
+        lines.append("")
 
     if image_path:
         lines.append("Attached you'll find an image the show the input/output example pairs. Use this image to find objects, patterns and transformations")

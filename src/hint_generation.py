@@ -1,0 +1,150 @@
+import re
+from typing import Optional
+import httpx
+from openai import OpenAI
+from anthropic import Anthropic
+from google import genai
+from src.config import get_api_keys
+from src.image_generation import generate_and_save_image
+from src.models import call_model
+from src.tasks import Task
+
+def generate_hint(task: Task, task_id: str, hint_model_arg: str, verbose: bool) -> Optional[str]:
+    """
+    Generates a hint for a given task by analyzing an image of the training examples.
+    """
+    image_path = generate_and_save_image(task, task_id, "logs")
+
+    prompt = """You are analyzing a single ARC-AGI training example presented as an image.
+The image shows one or more **input → output** grid pairs.
+
+Your task is **NOT** to solve the test task.
+Your task is to extract **generalizable insights** about what the transformation is *doing*, even if the example is incomplete or ambiguous.
+
+Follow all steps precisely.
+
+---
+
+## **1. Describe the observable structures**
+
+Describe what you see **without guessing** the rule:
+
+* What objects exist? (shapes, colors, connected components)
+* How are they arranged? (locations, orientations, bounding boxes)
+* What changes from input to output? (additions, removals, movements)
+* What stays the same? (stable background, preserved shapes)
+
+Be very literal and avoid hypothesizing here.
+
+---
+
+## **2. Identify transformation categories**
+
+For each, say “present”, “maybe”, or “absent”:
+
+* **Object movement**
+* **Object recoloring**
+* **Bordering / outlining**
+* **Filling holes or cavities**
+* **Removing noise / extracting main shape**
+* **Copying / pasting / repositioning**
+* **Using a key anchor location (corners, edges, center)**
+* **Using highest-frequency or rarest colors**
+* **Size-based filtering or selection**
+* **Symmetry or reflection operations**
+* **Growth, dilation, shrinking, erosion**
+* **Cluster → icon or icon → cluster mapping**
+
+This helps narrow down plausible rule families.
+
+---
+
+## **3. Extract the key non-obvious insights**
+
+List 3–6 insights that are **crucial and not immediately obvious**.
+Examples of the kind of insights to extract:
+
+* “Only the *largest* blue cluster receives a border; smaller ones are ignored.”
+* “New colors in the output correspond to *inside* regions of hollow shapes.”
+* “The transformation only acts on objects touching the top edge.”
+* “The rule depends on which color appears in the **top-left tile** of the input.”
+* “Objects are replaced with templated icons depending on their color.”
+* “Internal holes are treated as objects and recolored independently.”
+
+Focus on the subtle but general behavior.
+
+---
+
+## **4. Hypothesize a general rule (high level)**
+
+In 2–4 sentences, propose a **general transformation mechanism** that would explain the mapping *across inputs and outputs*.
+
+Avoid low-level pixel descriptions; describe conceptual behavior.
+
+Example styles:
+
+* “The task identifies hollow shapes and outlines them in red while recoloring their interior according to hole depth.”
+* “The task compresses all meaningful objects to the top-left quadrant while preserving their original shapes.”
+* “All scattered singletons are deleted and replaced by large structured blocks based on color frequency.”
+
+If ambiguous, propose the *two or three* most likely rule families.
+
+---
+
+## **5. List checks you would perform when solving**
+
+Give 3–5 quick algorithmic checks for validation, e.g.:
+
+* “Verify whether recoloring depends on hole depth or on adjacency to perimeter.”
+* “Check if the anchor color is always the top-left non-background pixel.”
+* “Test whether clusters are preserved or converted into icons.”
+* “Determine whether the largest cluster always receives the transformation.”
+
+These guide a solver toward the correct general rule.
+
+---
+
+## **6. Summarize final insights**
+
+In 3-4 bullet points, give the distilled essence — short, hard, and generalizable.
+**IMPORTANT: Start this section with the exact line `HINT_START` and end it with the exact line `HINT_END`.**
+
+Example:
+HINT_START
+* The task outlines certain shapes using a new color.
+* Only shapes with internal cavities are processed.
+* Inner cavities receive a secondary recolor distinct from the border.
+HINT_END
+"""
+
+    openai_key, claude_key, google_key = get_api_keys()
+    http_client = httpx.Client(timeout=3600.0)
+    openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
+    anthropic_client = Anthropic(api_key=claude_key, http_client=http_client) if claude_key else None
+    google_client = genai.Client(api_key=google_key) if google_key else None
+
+    try:
+        response = call_model(
+            openai_client=openai_client,
+            anthropic_client=anthropic_client,
+            google_client=google_client,
+            prompt=prompt,
+            model_arg=hint_model_arg,
+            image_path=image_path,
+            verbose=verbose
+        )
+
+        if verbose:
+            print("--- Hint Generation Full Response ---")
+            print(response.text)
+            print("------------------------------------")
+        
+        # Extract the content between HINT_START and HINT_END
+        match = re.search(r"HINT_START(.*?)HINT_END", response.text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        else:
+            return None
+
+    finally:
+        http_client.close()

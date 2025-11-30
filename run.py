@@ -20,6 +20,7 @@ from src.models import call_model, calculate_cost, parse_model_arg
 from src.utils import parse_grid_from_text, verify_prediction
 from src.logging import setup_logging
 from src.image_generation import generate_and_save_image
+from src.hint_generation import generate_hint
 
 # Constants
 DEFAULT_MODELS = [
@@ -173,6 +174,8 @@ def main():
     parser.add_argument("--hint", type=str, default=None, help="Optional hint to provide to the model")
     parser.add_argument("--image", action="store_true", help="Generate an image for the task and include it in the prompt.")
     parser.add_argument("--trigger-deep-thinking", action="store_true", help="Append a deep thinking procedure to the prompt.")
+    parser.add_argument("--generate-hint", action="store_true", help="Generate a hint for the task using a separate model call.")
+    parser.add_argument("--generate-hint-model", type=str, default="gpt-5.1-high", help="Model to use for generating hints.")
     
     args = parser.parse_args()
 
@@ -241,13 +244,23 @@ def main():
 
     test_example = task.test[test_idx]
 
+    # Generate hint if requested
+    hint = args.hint
+    if args.generate_hint:
+        print("Generating hint...")
+        hint = generate_hint(task, args.task, args.generate_hint_model, args.verbose)
+        if hint:
+            print(f"Generated hint: {hint}")
+        else:
+            print("Warning: Failed to generate hint.")
+
     # Generate image if requested
     image_path = None
     if args.image:
         image_path = generate_and_save_image(task, args.task, "logs")
 
     # Build Prompt
-    prompt = build_prompt(task.train, test_example, strategy=args.hint, image_path=image_path, trigger_deep_thinking=args.trigger_deep_thinking)
+    prompt = build_prompt(task.train, test_example, strategy=hint, image_path=image_path, trigger_deep_thinking=args.trigger_deep_thinking)
 
     total_calls = len(models_to_run)
     print(f"Starting parallel execution for {total_calls} models...")
