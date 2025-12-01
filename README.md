@@ -41,7 +41,7 @@ To run the full eval 2 data set just run the command `python run.py --task-direc
 
 ... or if you want the script to also correct the answers, then run `python run.py --task-directory tasks_eval2_no_answers/ --answers-directory answers_only_eval2/`
 
-By default, the script has 20 --task-workers, and the script will look something like this:
+By default, the script has 20 --task-workers, and the output will look something like this:
 ```
   Task         Status       Step                      Outcome   Duration
  ────────────────────────────────────────────────────────────────────────
