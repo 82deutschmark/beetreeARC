@@ -1,159 +1,25 @@
 import argparse
 import sys
-import os
 import time
 import warnings
 import queue
-import json
 import multiprocessing
 from pathlib import Path
 from datetime import datetime
 import concurrent.futures
 
-from src.solver_engine import run_solver_mode
-from src.default_engine import run_default_mode
 from src.tasks import load_task
-from src.logging import PrefixedStdout
 from src.run_utils import find_task_path
-from src.parallel import set_rate_limit_scaling
+from src.dashboard import render_table, update_task_states
+from src.execution import execute_task
+from src.submission import generate_submission
 
 # Conditional import for rich
 try:
     from rich.live import Live
-    from rich.table import Table
-    from rich.console import Console
-    from rich import box
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
-
-STATUS_ICON = {
-    "RUNNING": "🟡",
-    "COMPLETED": "🟢",
-    "ERROR": "🔴",
-}
-
-class DummyFile:
-    def write(self, x): pass
-    def flush(self): pass
-    @property
-    def encoding(self): return 'utf-8'
-
-def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rate_limit_scale: float = 1.0, progress_queue=None, quiet=False):
-    # Apply rate limit scaling (only affects this process)
-    if rate_limit_scale != 1.0:
-        set_rate_limit_scaling(rate_limit_scale)
-        
-    task_id = task_path.stem
-    
-    # Update args for default mode compatibility
-    args.task = str(task_path)
-    args.test = test_index
-    
-    predictions = None
-
-    if quiet:
-        # Redirect stdout/stderr to dummy file to prevent interrupting the UI
-        devnull = DummyFile()
-        old_stdout, old_stderr = sys.stdout, sys.stderr
-        sys.stdout = devnull
-        sys.stderr = devnull
-        try:
-            if args.solver or args.solver_testing:
-                predictions = run_solver_mode(task_id, test_index, args.verbose, is_testing=args.solver_testing, run_timestamp=run_timestamp, task_path=task_path, progress_queue=progress_queue)
-            else:
-                # default mode doesn't support progress_queue yet, so it will just run silently if quiet=True
-                predictions = run_default_mode(args)
-        except Exception as e:
-             # If we have a queue, try to report the crash
-            if progress_queue:
-                progress_queue.put({
-                    "task_id": task_id,
-                    "test_index": test_index,
-                    "status": "ERROR",
-                    "step": "Crashed",
-                    "outcome": "FAIL",
-                    "event": "FINISH",
-                    "timestamp": time.time()
-                })
-            raise e
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-    else:
-        # Standard verbose mode
-        prefix = f"{task_id}:{test_index} "
-        with PrefixedStdout(prefix):
-            try:
-                if args.solver or args.solver_testing:
-                    predictions = run_solver_mode(task_id, test_index, args.verbose, is_testing=args.solver_testing, run_timestamp=run_timestamp, task_path=task_path, progress_queue=progress_queue)
-                else:
-                    predictions = run_default_mode(args)
-            except Exception as e:
-                raise e
-    
-    return task_id, test_index, predictions
-
-def render_table(task_states):
-    table = Table(box=box.SIMPLE)
-    table.add_column("Task", style="cyan", no_wrap=True)
-    table.add_column("Status", style="bold")
-    table.add_column("Step", style="magenta")
-    table.add_column("Outcome", style="bold")
-    table.add_column("Duration", justify="right")
-
-    # Sort by status (Running first), then task ID
-    def sort_key(item):
-        key, state = item
-        status_order = {"RUNNING": 0, "ERROR": 1, "COMPLETED": 2}
-        return (status_order.get(state.get("status", "RUNNING"), 3), key)
-
-    for key, state in sorted(task_states.items(), key=sort_key):
-        task_str = f"{state['task_id']}:{state['test_index']}"
-        status = state.get('status', 'UNKNOWN')
-        icon = STATUS_ICON.get(status, "⚪")
-        
-        step = state.get('step', '-')
-        outcome = state.get('outcome', '-')
-        if outcome == "PASS":
-            outcome_style = "[green]PASS[/green]"
-        elif outcome == "FAIL":
-            outcome_style = "[red]FAIL[/red]"
-        else:
-            outcome_style = outcome
-
-        start_time = state.get('start_time')
-        duration_str = "-"
-        if start_time:
-            end_time = state.get('end_time') or time.time()
-            duration = end_time - start_time
-            minutes, seconds = divmod(int(duration), 60)
-            duration_str = f"{minutes:02d}:{seconds:02d}"
-
-        table.add_row(
-            task_str,
-            f"{icon} {status}",
-            step,
-            outcome_style,
-            duration_str
-        )
-    return table
-
-def update_task_states(task_states, msg):
-    key = f"{msg['task_id']}:{msg['test_index']}"
-    if key not in task_states:
-        task_states[key] = {}
-    
-    state = task_states[key]
-    state.update(msg)
-    
-    if msg.get("event") == "START" and "start_time" not in state:
-        state["start_time"] = msg["timestamp"]
-    
-    if msg.get("event") == "FINISH":
-        state["end_time"] = msg["timestamp"]
-        if "predictions" in msg:
-            state["predictions"] = msg["predictions"]
 
 def main():
     run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -262,14 +128,9 @@ def main():
                                     # Worker exited with sys.exit()
                                     key = f"{task_path.stem}:{test_idx}"
                                     if key not in task_states or task_states[key].get("status") != "COMPLETED":
-                                        if se.code == 0:
-                                            status = "COMPLETED"
-                                            outcome = "?"
-                                            step = "Finished (Silent)"
-                                        else:
-                                            status = "ERROR"
-                                            outcome = "FAIL"
-                                            step = f"Exit Code {se.code}"
+                                        status = "COMPLETED" if se.code == 0 else "ERROR"
+                                        outcome = "?" if se.code == 0 else "FAIL"
+                                        step = "Finished (Silent)" if se.code == 0 else f"Exit Code {se.code}"
                                             
                                         update_task_states(task_states, {
                                             "task_id": task_path.stem,
@@ -297,8 +158,6 @@ def main():
                             live.update(render_table(task_states))
                         else:
                             # All futures done. Now ensure we have received final messages for all tasks.
-                            # We wait until all tasks in task_states are marked COMPLETED or ERROR.
-                            
                             if shutdown_start_time is None:
                                 shutdown_start_time = time.time()
 
@@ -343,115 +202,10 @@ def main():
                         print(f"Task failed: {e}", file=sys.stderr)
                         
         # Generate Submission File
-        submission_dir = Path(args.submissions_directory)
-        submission_dir.mkdir(parents=True, exist_ok=True)
-        submission_file = submission_dir / f"{run_timestamp}_submission.json"
-        
-        submission_data = {}
-        
-        for task_id, test_idx, preds in final_results:
-            if not preds:
-                continue
-            
-            # Save individual task/test result
-            individual_file = submission_dir / f"{run_timestamp}_{task_id}_{test_idx}.json"
-            try:
-                with open(individual_file, "w") as f:
-                    json.dump(preds, f, indent=2)
-            except Exception as e:
-                print(f"Error saving individual result for {task_id}:{test_idx}: {e}", file=sys.stderr)
-
-            # preds is expected to be a list of dicts (top_groups) or similar structure
-            # Each item: {'grid': [[...]], 'count': N, ...}
-            
-            # We need 2 attempts per test input
-            # If we have > 0 predictions, take the top 2
-            
-            candidates = []
-            if isinstance(preds, list):
-                # Assume it's the top_groups list
-                for p in preds:
-                    if isinstance(p, dict) and "grid" in p:
-                        candidates.append(p["grid"])
-            
-            if not candidates:
-                continue
-                
-            attempt_1 = candidates[0]
-            attempt_2 = candidates[1] if len(candidates) > 1 else candidates[0]
-            
-            if task_id not in submission_data:
-                submission_data[task_id] = []
-            
-            # Ensure we place the prediction at the correct index
-            # We need to handle the fact that test_idx is 1-based coming from execute_task
-            # But submission_data expects a list of predictions corresponding to test inputs
-            
-            # Since we run tasks in parallel and they might return out of order, 
-            # and we might be running a subset, this is tricky.
-            # However, the prompt says: "For each task, you must provide predictions for every test input."
-            # And "Shape: { '<task_id>': [ PredictionForTest0, PredictionForTest1, ... ] }"
-            
-            # We need to know how many test inputs the task has to initialize the list correctly.
-            # In batch mode, we loaded the tasks, so we could know.
-            # But here we just have results.
-            
-            # Let's build a temporary dict: task_id -> { test_idx: {attempt_1, attempt_2} }
-            pass # Logic continues below
-            
-        # Re-process to format correctly
-        formatted_submission = {}
-        
-        # Group by task_id
-        task_results = {}
-        for task_id, test_idx, preds in final_results:
-             if task_id not in task_results:
-                 task_results[task_id] = {}
-             task_results[task_id][test_idx] = preds
-
-        for task_id, tests in task_results.items():
-            # We need to determine the number of tests. 
-            # We can assume the max test_idx found is the number of tests? 
-            # Or just use the indices we have.
-            # If we are running a subset, we can't produce a valid full submission file anyway.
-            # So let's just output what we have, sorted by test_index.
-            
-            max_idx = max(tests.keys())
-            formatted_submission[task_id] = []
-            
-            for i in range(1, max_idx + 1):
-                preds = tests.get(i)
-                attempt_1 = [[0]] # Default empty/fail
-                attempt_2 = [[0]]
-                
-                if preds:
-                    candidates = []
-                    if isinstance(preds, list):
-                        for p in preds:
-                            if isinstance(p, dict) and "grid" in p:
-                                candidates.append(p["grid"])
-                    elif isinstance(preds, tuple) and len(preds) == 2 and isinstance(preds[0], list):
-                         # Handle potential differnt return format if any
-                         pass
-                         
-                    if candidates:
-                        attempt_1 = candidates[0]
-                        attempt_2 = candidates[1] if len(candidates) > 1 else candidates[0]
-                
-                formatted_submission[task_id].append({
-                    "attempt_1": attempt_1,
-                    "attempt_2": attempt_2
-                })
-
-        with open(submission_file, "w") as f:
-            json.dump(formatted_submission, f)
-            
-        print(f"Submission file saved to: {submission_file}")
+        generate_submission(final_results, args.submissions_directory, run_timestamp)
 
     else:
         # Single task mode
-        # ... existing code ...
-
         try:
             task_path = find_task_path(args.task)
             execute_task(args, task_path, args.test, run_timestamp)
