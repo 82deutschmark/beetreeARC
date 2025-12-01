@@ -22,8 +22,10 @@ def run_with_retry(
 
     for attempt in range(max_retries):
         try:
+            start_ts = time.perf_counter()
             return func()
         except RetryableProviderError as e:
+            duration = time.perf_counter() - start_ts
             if attempt == max_retries - 1:
                 raise e
             
@@ -36,10 +38,10 @@ def run_with_retry(
             sleep_time = max(1.0, sleep_time)
 
             if isinstance(e, UnknownProviderError):
-                logger.error(f"!!! UNKNOWN ERROR - RETRYING (Attempt {attempt + 1}/{max_retries}) !!!")
+                logger.error(f"!!! UNKNOWN ERROR (after {duration:.2f}s) - RETRYING (Attempt {attempt + 1}/{max_retries}) !!!")
                 logger.error(f"Error details: {e}")
             else:
-                logger.warning(f"Retryable error: {e}. Retrying in {sleep_time:.2f}s (Attempt {attempt + 1}/{max_retries})...")
+                logger.warning(f"Retryable error (after {duration:.2f}s): {e}. Retrying in {sleep_time:.2f}s (Attempt {attempt + 1}/{max_retries})...")
             
             time.sleep(sleep_time)
             
