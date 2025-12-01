@@ -19,6 +19,25 @@ from src.logging import setup_logging, log_failure
 from src.parallel import run_single_model
 from src.run_utils import find_task_path, pick_solution, is_solved
 
+class ProgressReporter:
+    def __init__(self, queue, task_id, test_index):
+        self.queue = queue
+        self.task_id = task_id
+        self.test_index = test_index
+
+    def emit(self, status, step, outcome=None, event=None):
+        if self.queue is None:
+            return
+        self.queue.put({
+            "task_id": self.task_id,
+            "test_index": self.test_index,
+            "status": status,
+            "step": step,
+            "outcome": outcome,
+            "event": event,
+            "timestamp": time.time(),
+        })
+
 def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path=None, run_timestamp=None):
     all_results = []
     with ThreadPoolExecutor(max_workers=10) as executor:
@@ -42,7 +61,10 @@ def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test
                 all_results.append(res)
     return all_results
 
-def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None):
+def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None, progress_queue=None):
+    reporter = ProgressReporter(progress_queue, task_id, test_index)
+    reporter.emit("RUNNING", "Initializing", event="START")
+    
     try:
         if is_testing:
             print("Solver testing mode activated.")
@@ -135,6 +157,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
         # STEP 1
         print("\n--- STEP 1: Initial model run ---")
+        reporter.emit("RUNNING", "Step 1 (Initial)", event="STEP_CHANGE")
         step_1_log = {}
         print(f"Running {len(models_step1)} models...")
         prompt_step1 = build_prompt(task.train, test_example)
@@ -144,6 +167,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
         # STEP 2
         print("\n--- STEP 2: First check ---")
+        reporter.emit("RUNNING", "Step 2 (Check)", event="STEP_CHANGE")
         solved = is_solved(candidates_object)
         step_2_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "is_solved": solved}
         write_step_log("step_2", step_2_log, run_timestamp)
@@ -154,10 +178,12 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
             write_step_log("step_finish", finish_log, run_timestamp)
             print_summary()
             http_client.close()
+            reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH")
             return
 
         # STEP 3
         print("\n--- STEP 3: Second model run ---")
+        reporter.emit("RUNNING", "Step 3 (Extending)", event="STEP_CHANGE")
         step_3_log = {}
         print(f"Running {len(models_step3)} models...")
         prompt_step3 = build_prompt(task.train, test_example)
@@ -167,6 +193,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
         # STEP 4
         print("\n--- STEP 4: Second check ---")
+        reporter.emit("RUNNING", "Step 4 (Check)", event="STEP_CHANGE")
         solved = is_solved(candidates_object)
         step_4_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "is_solved": solved}
         write_step_log("step_4", step_4_log, run_timestamp)
@@ -177,10 +204,12 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
             write_step_log("step_finish", finish_log, run_timestamp)
             print_summary()
             http_client.close()
+            reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH")
             return
 
         # STEP 5
         print("\n--- STEP 5: Final model runs (in parallel) ---")
+        reporter.emit("RUNNING", "Step 5 (Deep/Hint)", event="STEP_CHANGE")
         step_5_log = {"trigger-deep-thinking": {}, "image": {}, "generate-hint": {}}
 
         def run_deep_thinking_step():
@@ -232,8 +261,10 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
             
         print_summary()
         http_client.close()
+        reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH")
         
     except Exception as e:
+        reporter.emit("ERROR", "Crashed", outcome="FAIL", event="FINISH")
         log_failure(
             run_timestamp=run_timestamp if run_timestamp else "unknown_timestamp",
             task_id=task_id,
