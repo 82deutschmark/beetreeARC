@@ -42,7 +42,7 @@ def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test
                 all_results.append(res)
     return all_results
 
-def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bool = False, run_timestamp: str = None):
+def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None):
     try:
         if is_testing:
             print("Solver testing mode activated.")
@@ -76,11 +76,12 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
             if verbose:
                 print(f"Saved log for {step_name} to {log_path}")
 
-        try:
-            task_path = find_task_path(task_id)
-        except FileNotFoundError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
+        if task_path is None:
+            try:
+                task_path = find_task_path(task_id)
+            except FileNotFoundError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
 
         openai_key, claude_key, google_key = get_api_keys()
         http_client = httpx.Client(timeout=3600.0)

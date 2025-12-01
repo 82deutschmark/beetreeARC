@@ -20,6 +20,31 @@ LIMITERS = {
     for name, config in PROVIDER_RATE_LIMITS.items()
 }
 
+_SCALED = False
+
+def set_rate_limit_scaling(factor: float):
+    """
+    Scales the rate limits for all providers by a factor.
+    Used when running multiple worker processes to divide the global rate limit.
+    """
+    global _SCALED
+    if _SCALED:
+        return
+    _SCALED = True
+
+    if factor == 1.0:
+        return
+
+    for name, limiter in LIMITERS.items():
+        original_rate = limiter.rate
+        new_rate = original_rate * factor
+        # Apply minimum floor of 1 request per minute to avoid divide by zero or effective hang
+        if new_rate < 1.0:
+            new_rate = 1.0
+        
+        limiter.rate = new_rate
+        limiter.per_seconds = 60.0 / new_rate
+
 def run_single_model(model_name, run_id, prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path=None, run_timestamp=None):
     prefix = f"[{run_id}]"
     if verbose:

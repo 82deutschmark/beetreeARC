@@ -3,11 +3,8 @@ import sys
 import json
 import datetime
 import traceback
-import threading
+import fcntl
 from pathlib import Path
-
-# Global lock to ensure atomic writes to the failures file
-_failures_lock = threading.Lock()
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
     """
@@ -122,10 +119,13 @@ def log_failure(
         # Serialize safely (handle non-serializable types)
         json_entry = json.dumps(entry, default=str)
 
-        with _failures_lock:
-            with open(failures_path, "a", encoding="utf-8") as f:
+        with open(failures_path, "a", encoding="utf-8") as f:
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX)
                 f.write(json_entry + "\n")
                 f.flush() # Ensure it hits the disk
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
                 
     except Exception as e:
         # Fallback: Don't let logging crash the application
