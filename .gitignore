@@ -4,3 +4,7 @@ __pycache__/
 logs/
 data/
 image_generation.md
+answers_batch/
+config/api_keys_all.env
+submissions/
+tasks_batch/
