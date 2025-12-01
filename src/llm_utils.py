@@ -31,7 +31,7 @@ def run_with_retry(
             # Or simple Full Jitter: sleep = random.uniform(0, min(cap, base * 2 ** attempt))
             # Let's use Full Jitter as planned
             
-            sleep_time = random.uniform(0, min(cap, base * (2 ** attempt)))
+            sleep_time = random.uniform(0, min(cap, base_delay * (2 ** attempt)))
             # Ensure at least a small wait
             sleep_time = max(1.0, sleep_time)
 
