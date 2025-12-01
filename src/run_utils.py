@@ -58,5 +58,19 @@ def pick_solution(candidates_object):
         for i, group in enumerate(top_groups):
             print(f"Group {i+1}: Count={group['count']}, Correct={group['is_correct']}")
             print(f"  Models: {', '.join(group['models'])}")
+
+    # Check for other correct groups
+    other_correct = []
+    for i, group in enumerate(sorted_groups):
+        if i < 2:
+            continue
+        if group.get('is_correct'):
+            other_correct.append((i + 1, group))
+            
+    if other_correct:
+        print("\n--- Other Correct Groups ---")
+        for rank, group in other_correct:
+            print(f"Group {rank}: Count={group['count']}, Correct={group['is_correct']}")
+            print(f"  Models: {', '.join(group['models'])}")
             
     return top_groups, is_solved_flag

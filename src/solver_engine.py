@@ -60,6 +60,14 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
     
     setup_logging(verbose)
 
+    start_time = time.time()
+    total_cost = 0.0
+
+    def print_summary():
+        duration = time.time() - start_time
+        print(f"\nTotal Execution Time: {duration:.2f}s")
+        print(f"Total Cost: ${total_cost:.4f}")
+
     def write_step_log(step_name: str, data: dict, timestamp: str):
         log_path = Path("logs") / f"{timestamp}_{task_id}_{test_index}_{step_name}.json"
         with open(log_path, "w") as f:
@@ -98,9 +106,11 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
     def process_results(results, step_log):
         nonlocal candidates_object
+        nonlocal total_cost
         initial_solutions = len(candidates_object)
         for res in results:
             if res:
+                total_cost += res.get("cost", 0)
                 run_key = f"{res['run_id']}_{time.time()}"
                 step_log[run_key] = {
                     "duration_seconds": round(res.get("duration", 0), 2),
@@ -140,6 +150,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
         picked_solutions, result = pick_solution(candidates_object)
         finish_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
         write_step_log("step_finish", finish_log, run_timestamp)
+        print_summary()
         http_client.close()
         return
 
@@ -162,6 +173,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
         picked_solutions, result = pick_solution(candidates_object)
         finish_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
         write_step_log("step_finish", finish_log, run_timestamp)
+        print_summary()
         http_client.close()
         return
 
@@ -216,4 +228,5 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
     finish_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
     write_step_log("step_finish", finish_log, run_timestamp)
         
+    print_summary()
     http_client.close()
