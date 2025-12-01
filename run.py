@@ -6,6 +6,8 @@ from src.solver_engine import run_solver_mode
 from src.default_engine import run_default_mode
 
 def main():
+    from datetime import datetime
+    run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     parser = argparse.ArgumentParser(description="Run a single ARC task test case with multiple models in parallel.")
     parser.add_argument("--task", required=True, help="Task ID (e.g., 38007db0)")
     parser.add_argument("--test", type=int, default=1, help="Test case index (1-based, default: 1)")
@@ -17,15 +19,18 @@ def main():
     parser.add_argument("--trigger-deep-thinking", action="store_true", help="Append a deep thinking procedure to the prompt.")
     parser.add_argument("--generate-hint", action="store_true", help="Generate a hint for the task using a separate model call.")
     parser.add_argument("--generate-hint-model", type=str, default="gpt-5.1-high", help="Model to use for generating hints.")
-    parser.add_argument("--solver", action="store_true", help="Enable solver mode.")
+    
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--solver", action="store_true", help="Enable solver mode.")
+    group.add_argument("--solver-testing", action="store_true", help="Enable solver testing mode with a smaller set of models.")
     
     args = parser.parse_args()
 
     # Suppress Pydantic warnings from the Anthropic library
     warnings.filterwarnings("ignore", message=r"Pydantic serializer warnings:", category=UserWarning)
 
-    if args.solver:
-        run_solver_mode(args.task, args.test, args.verbose)
+    if args.solver or args.solver_testing:
+        run_solver_mode(args.task, args.test, args.verbose, is_testing=args.solver_testing, run_timestamp=run_timestamp)
     else:
         run_default_mode(args)
 

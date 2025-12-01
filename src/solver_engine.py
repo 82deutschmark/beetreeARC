@@ -42,12 +42,26 @@ def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test
                 all_results.append(res)
     return all_results
 
-def run_solver_mode(task_id: str, test_index: int, verbose: bool):
-    print("Solver mode activated.")
+def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bool = False, run_timestamp: str = None):
+    if is_testing:
+        print("Solver testing mode activated.")
+        # Models for --solver-testing
+        models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
+        models_step3 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
+        models_step5 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
+        hint_generation_model = "gpt-5.1-none"
+    else:
+        print("Solver mode activated.")
+        # Models for --solver
+        models_step1 = ["claude-sonnet-4.5-thinking-60000", "claude-sonnet-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gpt-5.1-high", "gemini-3-high", "gemini-3-high"]
+        models_step3 = ["claude-opus-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gpt-5.1-high", "gemini-3-high", "gemini-3-high"]
+        models_step5 = ["claude-opus-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gpt-5.1-high", "gemini-3-high", "gemini-3-high"]
+        hint_generation_model = "gpt-5.1-high"
+    
     setup_logging(verbose)
 
-    def write_step_log(step_name: str, data: dict):
-        log_path = Path("logs") / f"{task_id}_{test_index}_{step_name}.json"
+    def write_step_log(step_name: str, data: dict, timestamp: str):
+        log_path = Path("logs") / f"{timestamp}_{task_id}_{test_index}_{step_name}.json"
         with open(log_path, "w") as f:
             json.dump(data, f, indent=4, default=lambda o: '<not serializable>')
         if verbose:
@@ -110,85 +124,96 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool):
     # STEP 1
     print("\n--- STEP 1: Initial model run ---")
     step_1_log = {}
-    models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none", "gpt-5.1-none"]
     print(f"Running {len(models_step1)} models...")
     prompt_step1 = build_prompt(task.train, test_example)
     results_step1 = run_models_in_parallel(models_step1, run_id_counts, "step_1", prompt_step1, test_example, openai_client, anthropic_client, google_client, verbose)
     process_results(results_step1, step_1_log)
-    write_step_log("step_1", step_1_log)
+    write_step_log("step_1", step_1_log, run_timestamp)
 
     # STEP 2
     print("\n--- STEP 2: First check ---")
     solved_prob = is_solved(candidates_object)
     step_2_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "is_solved_prob": solved_prob}
-    write_step_log("step_2", step_2_log)
+    write_step_log("step_2", step_2_log, run_timestamp)
     if solved_prob > 0.9:
         print("is_solved() > 0.9, moving to STEP FINISH.")
         picked_solutions, result = pick_solution(candidates_object)
         finish_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
-        write_step_log("step_finish", finish_log)
+        write_step_log("step_finish", finish_log, run_timestamp)
         http_client.close()
         return
 
     # STEP 3
     print("\n--- STEP 3: Second model run ---")
     step_3_log = {}
-    models_step3 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
     print(f"Running {len(models_step3)} models...")
     prompt_step3 = build_prompt(task.train, test_example)
     results_step3 = run_models_in_parallel(models_step3, run_id_counts, "step_3", prompt_step3, test_example, openai_client, anthropic_client, google_client, verbose)
     process_results(results_step3, step_3_log)
-    write_step_log("step_3", step_3_log)
+    write_step_log("step_3", step_3_log, run_timestamp)
 
     # STEP 4
     print("\n--- STEP 4: Second check ---")
     solved_prob = is_solved(candidates_object)
     step_4_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "is_solved_prob": solved_prob}
-    write_step_log("step_4", step_4_log)
+    write_step_log("step_4", step_4_log, run_timestamp)
     if solved_prob > 0.9:
         print("is_solved() > 0.9, moving to STEP FINISH.")
         picked_solutions, result = pick_solution(candidates_object)
         finish_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
-        write_step_log("step_finish", finish_log)
+        write_step_log("step_finish", finish_log, run_timestamp)
         http_client.close()
         return
 
     # STEP 5
-    print("\n--- STEP 5: Final model runs ---")
+    print("\n--- STEP 5: Final model runs (in parallel) ---")
     step_5_log = {"trigger-deep-thinking": {}, "image": {}, "generate-hint": {}}
-    models_step5 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
-    
-    print(f"Running {len(models_step5)} models with deep thinking...")
-    prompt_deep = build_prompt(task.train, test_example, trigger_deep_thinking=True)
-    results_deep = run_models_in_parallel(models_step5, run_id_counts, "step_5_deep_thinking", prompt_deep, test_example, openai_client, anthropic_client, google_client, verbose)
-    process_results(results_deep, step_5_log["trigger-deep-thinking"])
-    
-    print(f"Running {len(models_step5)} models with image...")
-    image_path = f"logs/{task_id}_{test_index}_step5_image.png"
-    generate_and_save_image(task, image_path)
-    prompt_image = build_prompt(task.train, test_example, image_path=image_path)
-    results_image = run_models_in_parallel(models_step5, run_id_counts, "step_5_image", prompt_image, test_example, openai_client, anthropic_client, google_client, verbose, image_path=image_path)
-    process_results(results_image, step_5_log["image"])
 
-    print(f"Running {len(models_step5)} models with generated hint...")
-    hint_image_path = f"logs/{task_id}_{test_index}_step5_generate_hint.png"
-    hint_data = generate_hint(task, hint_image_path, "gpt-5.1-none", verbose)
-    if hint_data and hint_data["hint"]:
-        step_5_log["generate-hint"]["hint_generation"] = {
-            "Full raw LLM call": hint_data["prompt"],
-            "Full raw LLM response": hint_data["full_response"],
-            "Extracted hint": hint_data["hint"],
-        }
-        prompt_hint = build_prompt(task.train, test_example, strategy=hint_data["hint"])
-        results_hint = run_models_in_parallel(models_step5, run_id_counts, "step_5_generate_hint", prompt_hint, test_example, openai_client, anthropic_client, google_client, verbose)
-        process_results(results_hint, step_5_log["generate-hint"])
-    
-    write_step_log("step_5", step_5_log)
+    def run_deep_thinking_step():
+        print(f"Running {len(models_step5)} models with deep thinking...")
+        prompt_deep = build_prompt(task.train, test_example, trigger_deep_thinking=True)
+        results_deep = run_models_in_parallel(models_step5, run_id_counts, "step_5_deep_thinking", prompt_deep, test_example, openai_client, anthropic_client, google_client, verbose)
+        return "trigger-deep-thinking", results_deep
+
+    def run_image_step():
+        print(f"Running {len(models_step5)} models with image...")
+        image_path = f"logs/{run_timestamp}_{task_id}_{test_index}_step5_image.png"
+        generate_and_save_image(task, image_path)
+        prompt_image = build_prompt(task.train, test_example, image_path=image_path)
+        results_image = run_models_in_parallel(models_step5, run_id_counts, "step_5_image", prompt_image, test_example, openai_client, anthropic_client, google_client, verbose, image_path=image_path)
+        return "image", results_image
+
+    def run_hint_step():
+        print(f"Running {len(models_step5)} models with generated hint...")
+        hint_image_path = f"logs/{run_timestamp}_{task_id}_{test_index}_step5_generate_hint.png"
+        hint_data = generate_hint(task, hint_image_path, hint_generation_model, verbose)
+        if hint_data and hint_data["hint"]:
+            step_5_log["generate-hint"]["hint_generation"] = {
+                "Full raw LLM call": hint_data["prompt"],
+                "Full raw LLM response": hint_data["full_response"],
+                "Extracted hint": hint_data["hint"],
+            }
+            prompt_hint = build_prompt(task.train, test_example, strategy=hint_data["hint"])
+            results_hint = run_models_in_parallel(models_step5, run_id_counts, "step_5_generate_hint", prompt_hint, test_example, openai_client, anthropic_client, google_client, verbose)
+            return "generate-hint", results_hint
+        return "generate-hint", []
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [
+            executor.submit(run_deep_thinking_step),
+            executor.submit(run_image_step),
+            executor.submit(run_hint_step)
+        ]
+        for future in as_completed(futures):
+            step_name, results = future.result()
+            process_results(results, step_5_log[step_name])
+
+    write_step_log("step_5", step_5_log, run_timestamp)
 
     # STEP FINISH
     print("\n--- STEP FINISH: Pick and print solution ---")
     picked_solutions, result = pick_solution(candidates_object)
     finish_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "picked_solutions": picked_solutions, "result": "PASS" if result else "FAIL", "correct_solution": test_example.output}
-    write_step_log("step_finish", finish_log)
+    write_step_log("step_finish", finish_log, run_timestamp)
         
     http_client.close()
