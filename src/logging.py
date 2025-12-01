@@ -51,6 +51,40 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
     
     return logger
 
+class PrefixedStdout:
+    def __init__(self, prefix):
+        self.prefix = prefix
+        self.original_stdout = sys.stdout
+        self.at_line_start = True
+
+    def write(self, text):
+        if not text:
+            return
+        
+        lines = text.split('\n')
+        
+        for i, line in enumerate(lines):
+            if i > 0:
+                # We encountered a newline in the split
+                self.original_stdout.write('\n')
+                self.at_line_start = True
+            
+            if line:
+                if self.at_line_start:
+                    self.original_stdout.write(self.prefix)
+                    self.at_line_start = False
+                self.original_stdout.write(line)
+        
+    def flush(self):
+        self.original_stdout.flush()
+        
+    def __enter__(self):
+        sys.stdout = self
+        return self
+        
+    def __exit__(self, exc_type, exc_value, traceback):
+        sys.stdout = self.original_stdout
+
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(f"arc_agi.{name}")
 
