@@ -251,7 +251,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool):
     # STEP 1
     print("\n--- STEP 1: Initial model run ---")
     step_1_log = {}
-    models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
+    models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none", "gpt-5.1-none"]
     print(f"Running {len(models_step1)} models...")
     prompt_step1 = build_prompt(task.train, test_example)
     results_step1 = run_models_in_parallel(models_step1, run_id_counts, "step_1", prompt_step1, test_example, openai_client, anthropic_client, google_client, verbose)
