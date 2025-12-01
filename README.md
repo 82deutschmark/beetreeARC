@@ -90,6 +90,9 @@ The next improvements that I'm hoping to do to my algorithm are:
 - Grok doesn't seem to be particularly performant, but I guess I should try it out too. I'm more curious about the chinese open source models. They may add completely other angles that could be highly complimentary.
 - I suppose I should implement an explicit python based solver too. I don't like the idea of doing the search in "python space" (seems inefficient) but I can see it being very powerful in verifying solutions, or even "implementing the best of solutions"
 
+Also some small fixes needed:
+- Make hints speak in terms of color-numbers (e.g. #7)rather than explicit colors (e.g. orange)
+
 ## Historical analysis
 
 ### Base Model Performance
