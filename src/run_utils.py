@@ -39,8 +39,31 @@ def is_solved(candidates_object) -> bool:
     return True
 
 def pick_solution(candidates_object):
-    # Temporary implementation
-    sorted_groups = sorted(candidates_object.values(), key=lambda g: g['count'], reverse=True)
+    # Model priority mapping (higher number = higher priority)
+    MODEL_PRIORITY = {
+        "claude-opus-4.5-thinking-60000": 4,
+        "gemini-3-high": 3,
+        "gpt-5.1-high": 2,
+        "claude-sonnet-4.5-thinking-60000": 1
+    }
+
+    def get_group_priority(group):
+        max_priority = 0
+        for run_id in group['models']:
+            # run_id format is typically "model-name_count_step"
+            # We try to match the longest possible prefix in our priority map
+            for model_name, priority in MODEL_PRIORITY.items():
+                if run_id.startswith(model_name):
+                    if priority > max_priority:
+                        max_priority = priority
+        return max_priority
+
+    # Sort by count (descending) and then by priority (descending)
+    sorted_groups = sorted(
+        candidates_object.values(), 
+        key=lambda g: (g['count'], get_group_priority(g)), 
+        reverse=True
+    )
     
     print("\n" + "="*40)
     print("FINAL OUTCOME")
@@ -72,7 +95,8 @@ def pick_solution(candidates_object):
         for i, group in enumerate(top_groups):
             correctness = group.get('is_correct')
             c_str = "Unknown" if correctness is None else str(correctness)
-            print(f"Group {i+1}: Count={group['count']}, Correct={c_str}")
+            priority = get_group_priority(group)
+            print(f"Group {i+1}: Count={group['count']}, Priority={priority}, Correct={c_str}")
             print(f"  Models: {', '.join(group['models'])}")
 
     # Check for other correct groups
