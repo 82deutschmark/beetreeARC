@@ -2,3 +2,4 @@ config/api_keys.env
 .venv/
 __pycache__/
 logs/
+data/
