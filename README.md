@@ -45,26 +45,27 @@ By default, the script has 20 --task-workers, and the output will look something
 ```
   Task         Status         Step                       Outcome   Duration
  ───────────────────────────────────────────────────────────────────────────
-  16de56c4:1   🟡 RUNNING     Step 5 (Full search)                    39:50
-  16de56c4:2   🟡 RUNNING     Step 5 (Full search)                    39:50
-  20a9e565:1   🟡 RUNNING     Step 5 (Full search)                    39:50
-  20a9e565:2   🟡 RUNNING     Step 5 (Full search)                    39:49
-  247ef758:1   🟡 RUNNING     Step 5 (Full search)                    39:49
-  247ef758:2   🟡 RUNNING     Step 3 (Extended search)                39:49
-  332f06d7:1   🟡 RUNNING     Step 5 (Full search)                    39:49
-  36a08778:1   🟡 RUNNING     Step 3 (Extended search)                39:49
-  36a08778:2   🟡 RUNNING     Step 1 (Shallow search)                 39:49
-  3dc255db:1   🟡 RUNNING     Step 3 (Extended search)                39:49
-  409aa875:1   🟡 RUNNING     Step 5 (Full search)                    39:49
-  581f7754:1   🟡 RUNNING     Step 5 (Full search)                    39:49
-  581f7754:2   🟡 RUNNING     Step 3 (Extended search)                39:49
-  67e490f4:1   🟡 RUNNING     Step 5 (Full search)                    39:49
-  71e489b6:1   🟡 RUNNING     Step 3 (Extended search)                39:49
-  71e489b6:2   🟡 RUNNING     Step 5 (Full search)                    39:49
-  7b3084d4:1   🟡 RUNNING     Step 5 (Full search)                    39:49
-  80a900e0:1   🟡 RUNNING     Step 5 (Full search)                    39:49
-  898e7135:1   🟡 RUNNING     Step 5 (Full search)                    39:49
-  8b9c3697:1   🟡 RUNNING     Step 1 (Shallow search)                 02:24
+  16de56c4:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  16de56c4:2   🟡 RUNNING     Step 5 (Full search)                    43:37
+  20a9e565:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  20a9e565:2   🟡 RUNNING     Step 5 (Full search)                    43:37
+  247ef758:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  247ef758:2   🟡 RUNNING     Step 5 (Full search)                    43:37
+  332f06d7:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  36a08778:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  36a08778:2   🟡 RUNNING     Step 3 (Extended search)                43:37
+  3dc255db:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  581f7754:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  581f7754:2   🟡 RUNNING     Step 3 (Extended search)                43:37
+  67e490f4:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  71e489b6:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  71e489b6:2   🟡 RUNNING     Step 5 (Full search)                    43:37
+  7b3084d4:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  80a900e0:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  898e7135:1   🟡 RUNNING     Step 5 (Full search)                    43:37
+  8b9c3697:1   🟡 RUNNING     Step 1 (Shallow search)                 06:12
+  8e5c0c38:1   🟡 RUNNING     Step 1 (Shallow search)                 00:55
+  409aa875:1   🟢 COMPLETED   Finished                   PASS         42:42
   5961cc34:1   🟢 COMPLETED   Finished                   PASS         37:25
 ```
 
