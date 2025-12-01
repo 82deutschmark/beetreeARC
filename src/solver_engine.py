@@ -89,6 +89,11 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool):
             if res:
                 run_key = f"{res['run_id']}_{time.time()}"
                 step_log[run_key] = {
+                    "duration_seconds": round(res.get("duration", 0), 2),
+                    "total_cost": res.get("cost", 0),
+                    "input_tokens": res.get("input_tokens", 0),
+                    "output_tokens": res.get("output_tokens", 0),
+                    "cached_tokens": res.get("cached_tokens", 0),
                     "Full raw LLM call": res["prompt"],
                     "Full raw LLM response": res["full_response"],
                     "Extracted grid": res["grid"],

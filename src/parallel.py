@@ -21,6 +21,9 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
     cost = 0.0
     duration = 0.0
     full_response = ""
+    input_tokens = 0
+    output_tokens = 0
+    cached_tokens = 0
     try:
         start_ts = time.perf_counter()
         response = call_model(
@@ -35,6 +38,9 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
         )
         duration = time.perf_counter() - start_ts
         full_response = response.text
+        input_tokens = response.prompt_tokens
+        output_tokens = response.completion_tokens
+        cached_tokens = response.cached_tokens
         
         try:
             model_config = parse_model_arg(model_name)
@@ -59,14 +65,14 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                     print(f"\n{prefix} Predicted Grid:")
                     print(grid_text)
             
-            return {"model": model_name, "run_id": run_id, "grid": predicted_grid, "is_correct": is_correct, "cost": cost, "duration": duration, "prompt": prompt, "full_response": full_response}
+            return {"model": model_name, "run_id": run_id, "grid": predicted_grid, "is_correct": is_correct, "cost": cost, "duration": duration, "prompt": prompt, "full_response": full_response, "input_tokens": input_tokens, "output_tokens": output_tokens, "cached_tokens": cached_tokens}
                     
         except ValueError as e:
             if verbose:
                 print(f"{prefix} Result: FAIL (Parse Error: {e})")
                 print(f"\n{prefix} Raw Output:\n{grid_text}")
-            return {"model": model_name, "run_id": run_id, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": full_response}
+            return {"model": model_name, "run_id": run_id, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": full_response, "input_tokens": input_tokens, "output_tokens": output_tokens, "cached_tokens": cached_tokens}
 
     except Exception as e:
         print(f"{prefix} Error during execution: {e}", file=sys.stderr)
-        return {"model": model_name, "run_id": run_id, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": str(e)}
+        return {"model": model_name, "run_id": run_id, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": str(e), "input_tokens": input_tokens, "output_tokens": output_tokens, "cached_tokens": cached_tokens}
