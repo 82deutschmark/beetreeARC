@@ -5,6 +5,13 @@ from typing import Optional
 
 from src.types import SUPPORTED_MODELS, ORDERED_MODELS
 
+# Centralized config for rate limits
+PROVIDER_RATE_LIMITS = {
+    "openai": {"rate": 15, "period": 60},
+    "anthropic": {"rate": 15, "period": 60},
+    "google": {"rate": 15, "period": 60}
+}
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Send ARC-AGI tasks to OpenAI.")
     parser.add_argument(

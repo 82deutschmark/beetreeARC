@@ -10,6 +10,14 @@ from google import genai
 
 from src.models import call_model, parse_model_arg, calculate_cost
 from src.utils import parse_grid_from_text, verify_prediction
+from src.rate_limiter import RateLimiter
+from src.config import PROVIDER_RATE_LIMITS
+
+# Initialize global rate limiters per provider
+LIMITERS = {
+    name: RateLimiter(**config)
+    for name, config in PROVIDER_RATE_LIMITS.items()
+}
 
 def run_single_model(model_name, run_id, prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path=None):
     prefix = f"[{run_id}]"
@@ -25,6 +33,20 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
     output_tokens = 0
     cached_tokens = 0
     try:
+        # Acquire rate limit token
+        try:
+            model_config = parse_model_arg(model_name)
+            provider = model_config.provider
+            if provider == "gemini": # Map internal name to config key
+                provider = "google"
+            
+            if provider in LIMITERS:
+                if verbose:
+                    print(f"{prefix} Waiting for rate limit token ({provider})...")
+                LIMITERS[provider].acquire()
+        except Exception as e:
+            print(f"{prefix} Warning: Failed to acquire rate limit token: {e}", file=sys.stderr)
+
         start_ts = time.perf_counter()
         response = call_model(
             openai_client=openai_client,

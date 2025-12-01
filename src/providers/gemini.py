@@ -5,10 +5,12 @@ import PIL.Image
 
 from google import genai
 from google.genai import types
+from google.api_core import exceptions as google_exceptions
 
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
 from src.logging import get_logger
+from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError
 
 logger = get_logger("providers.gemini")
 
@@ -23,19 +25,6 @@ def call_gemini(
     
     model = config.base_model
     thinking_level = str(config.config)
-
-    def _should_retry(e: Exception) -> bool:
-        err_str = str(e)
-        return (
-            "500" in err_str 
-            or "UNAVAILABLE" in err_str 
-            or "overloaded" in err_str.lower()
-            or "Server disconnected" in err_str
-            or "RemoteProtocolError" in err_str
-            or "connection closed" in err_str.lower()
-            or "peer closed connection" in err_str.lower()
-            or "incomplete chunked read" in err_str.lower()
-        )
 
     # Use thinking_level with string literals "LOW" or "HIGH" (case insensitive usually, but standard is upper/lower matching the enum)
     # Typically the SDK accepts "low" / "high" strings for this field if typed as ThinkingLevel
@@ -53,11 +42,37 @@ def call_gemini(
     # Shared chat object for state
     chat = client.chats.create(model=model, config=gen_config)
 
-    def _run_chat(message):
-        # Suppress Pydantic serialization warnings from the SDK
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning, message=".*Pydantic serializer warnings.*")
-            return chat.send_message(message)
+    def _safe_send(message):
+        try:
+            # Suppress Pydantic serialization warnings from the SDK
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning, message=".*Pydantic serializer warnings.*")
+                return chat.send_message(message)
+        except Exception as e:
+            # 1. Known SDK Retryables
+            if isinstance(e, (google_exceptions.ResourceExhausted, google_exceptions.ServiceUnavailable, google_exceptions.InternalServerError, google_exceptions.TooManyRequests)):
+                 raise RetryableProviderError(f"Gemini Transient Error: {e}") from e
+            
+            # 2. Known SDK Non-Retryables
+            if isinstance(e, (google_exceptions.InvalidArgument, google_exceptions.PermissionDenied, google_exceptions.Unauthenticated)):
+                 raise NonRetryableProviderError(f"Gemini Fatal Error: {e}") from e
+
+            # 3. String matching for other errors
+            err_str = str(e)
+            if (
+                "500" in err_str 
+                or "UNAVAILABLE" in err_str 
+                or "overloaded" in err_str.lower()
+                or "Server disconnected" in err_str
+                or "RemoteProtocolError" in err_str
+                or "connection closed" in err_str.lower()
+                or "peer closed connection" in err_str.lower()
+                or "incomplete chunked read" in err_str.lower()
+            ):
+                raise RetryableProviderError(f"Network/Protocol Error: {e}") from e
+
+            # 4. Loud Retry
+            raise UnknownProviderError(f"Unexpected Gemini Error: {e}") from e
 
     def _solve(p: str) -> ModelResponse:
         # Pass raw string to avoid Pydantic warnings; SDK handles wrapping
@@ -66,7 +81,7 @@ def call_gemini(
             img = PIL.Image.open(image_path)
             message.append(img)
 
-        response = run_with_retry(lambda: _run_chat(message), _should_retry)
+        response = run_with_retry(lambda: _safe_send(message))
         
         try:
             text_parts = []
@@ -88,7 +103,7 @@ def call_gemini(
         try:
             # Chat object maintains history automatically
             message = p
-            response = run_with_retry(lambda: _run_chat(message), _should_retry)
+            response = run_with_retry(lambda: _safe_send(message))
             
             text_parts = []
             if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:

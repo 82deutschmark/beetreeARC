@@ -3,11 +3,13 @@ import base64
 import mimetypes
 from typing import Optional
 
+import openai
 from openai import OpenAI
 
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
 from src.logging import get_logger
+from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError
 
 logger = get_logger("providers.openai")
 
@@ -23,20 +25,36 @@ def call_openai_internal(
     model = config.base_model
     reasoning_effort = str(config.config) # Cast to string for safety
 
-    def _should_retry(e: Exception) -> bool:
-        err_str = str(e)
-        return (
-            "Connection error" in err_str
-            or "500" in err_str
-            or "server_error" in err_str
-            or "upstream connect error" in err_str
-            or "timed out" in err_str
-            or "Server disconnected" in err_str
-            or "RemoteProtocolError" in err_str
-            or "connection closed" in err_str.lower()
-            or "peer closed connection" in err_str.lower()
-            or "incomplete chunked read" in err_str.lower()
-        )
+    def _safe_create(**kwargs):
+        try:
+            return client.responses.create(**kwargs)
+        except Exception as e:
+            # 1. Known SDK Retryables
+            if isinstance(e, (openai.RateLimitError, openai.APIConnectionError, openai.InternalServerError)):
+                raise RetryableProviderError(f"OpenAI Transient Error: {e}") from e
+            
+            # 2. Known SDK Non-Retryables
+            if isinstance(e, (openai.BadRequestError, openai.AuthenticationError, openai.PermissionDeniedError)):
+                raise NonRetryableProviderError(f"OpenAI Fatal Error: {e}") from e
+
+            # 3. String matching for other transient network errors
+            err_str = str(e)
+            if (
+                "Connection error" in err_str
+                or "500" in err_str
+                or "server_error" in err_str
+                or "upstream connect error" in err_str
+                or "timed out" in err_str
+                or "Server disconnected" in err_str
+                or "RemoteProtocolError" in err_str
+                or "connection closed" in err_str.lower()
+                or "peer closed connection" in err_str.lower()
+                or "incomplete chunked read" in err_str.lower()
+            ):
+                raise RetryableProviderError(f"Network/Protocol Error: {e}") from e
+
+            # 4. True Unknowns -> Loud Retry
+            raise UnknownProviderError(f"Unexpected OpenAI Error: {e}") from e
 
     def _solve(p: str) -> ModelResponse:
         content = [{"type": "input_text", "text": p}]
@@ -59,7 +77,7 @@ def call_openai_internal(
         if reasoning_effort != "none":
             kwargs["reasoning"] = {"effort": reasoning_effort}
 
-        response = run_with_retry(lambda: client.responses.create(**kwargs), _should_retry)
+        response = run_with_retry(lambda: _safe_create(**kwargs))
 
         text_output = ""
         if hasattr(response, "output"):
@@ -91,7 +109,7 @@ def call_openai_internal(
                 "input": [{"role": "user", "content": p}],
                 "timeout": 3600
             }
-            response = run_with_retry(lambda: client.responses.create(**kwargs), _should_retry)
+            response = run_with_retry(lambda: _safe_create(**kwargs))
             
             text_output = ""
             if hasattr(response, "output"):

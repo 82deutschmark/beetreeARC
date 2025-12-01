@@ -1,30 +1,50 @@
 import sys
 import time
+import random
 from typing import Callable, Any, Optional
 
 from src.types import ModelResponse
 from src.logging import get_logger
+from src.errors import RetryableProviderError, UnknownProviderError
 
 logger = get_logger("llm_utils")
 
 def run_with_retry(
     func: Callable[[], Any],
-    retry_predicate: Callable[[Exception], bool],
     max_retries: int = 7
 ) -> Any:
-    """Generic retry loop helper."""
+    """
+    Generic retry loop helper using RetryableProviderError.
+    Implements Decorrelated Jitter for backoff.
+    """
+    base_delay = 1
+    cap = 60
+
     for attempt in range(max_retries):
         try:
             return func()
-        except Exception as e:
-            if retry_predicate(e):
-                if attempt < max_retries - 1:
-                    # Exponential backoff with a cap: 5, 10, 20, 40, 60, 60...
-                    delay = min(5 * (2 ** attempt), 60)
-                    logger.debug(f"Retryable error encountered: {e}. Retrying in {delay}s (Attempt {attempt + 1}/{max_retries})...")
-                    time.sleep(delay)
-                    continue
-            raise e
+        except RetryableProviderError as e:
+            if attempt == max_retries - 1:
+                raise e
+            
+            # Decorrelated Jitter: sleep = min(cap, random.uniform(base, sleep * 3))
+            # Or simple Full Jitter: sleep = random.uniform(0, min(cap, base * 2 ** attempt))
+            # Let's use Full Jitter as planned
+            
+            sleep_time = random.uniform(0, min(cap, base * (2 ** attempt)))
+            # Ensure at least a small wait
+            sleep_time = max(1.0, sleep_time)
+
+            if isinstance(e, UnknownProviderError):
+                logger.error(f"!!! UNKNOWN ERROR - RETRYING (Attempt {attempt + 1}/{max_retries}) !!!")
+                logger.error(f"Error details: {e}")
+            else:
+                logger.warning(f"Retryable error: {e}. Retrying in {sleep_time:.2f}s (Attempt {attempt + 1}/{max_retries})...")
+            
+            time.sleep(sleep_time)
+            
+    # Should not be reached if we raise in the loop
+    return None
 
 def orchestrate_two_stage(
     solve_func: Callable[[str], ModelResponse],

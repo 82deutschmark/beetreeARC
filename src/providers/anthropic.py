@@ -3,11 +3,13 @@ import base64
 import mimetypes
 from typing import Union, Optional
 
+import anthropic
 from anthropic import Anthropic
 
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
 from src.logging import get_logger
+from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError
 
 logger = get_logger("providers.anthropic")
 
@@ -24,20 +26,6 @@ def call_anthropic(
     model = config.base_model
     cfg_val = config.config
 
-    def _should_retry(e: Exception) -> bool:
-        err_str = str(e)
-        return (
-            "500" in err_str
-            or "Internal server error" in err_str
-            or "Connection reset" in err_str
-            or "Connection error" in err_str
-            or "Server disconnected" in err_str
-            or "RemoteProtocolError" in err_str
-            or "connection closed" in err_str.lower()
-            or "peer closed connection" in err_str.lower()
-            or "incomplete chunked read" in err_str.lower()
-        )
-
     kwargs = {
         "model": model,
         "max_tokens": 8192
@@ -48,6 +36,38 @@ def call_anthropic(
         if budget >= max_tokens: budget = max_tokens - 2048
         kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
         kwargs["max_tokens"] = max_tokens
+
+    def _safe_stream(**kw):
+        try:
+            with client.messages.stream(**kw) as stream:
+                for _ in stream.text_stream: pass
+                return stream.get_final_message()
+        except Exception as e:
+            # 1. Known SDK Retryables
+            if isinstance(e, (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.InternalServerError)):
+                raise RetryableProviderError(f"Anthropic Transient Error: {e}") from e
+            
+            # 2. Known SDK Non-Retryables
+            if isinstance(e, (anthropic.BadRequestError, anthropic.AuthenticationError, anthropic.PermissionDeniedError)):
+                raise NonRetryableProviderError(f"Anthropic Fatal Error: {e}") from e
+
+            # 3. String matching
+            err_str = str(e)
+            if (
+                "500" in err_str
+                or "Internal server error" in err_str
+                or "Connection reset" in err_str
+                or "Connection error" in err_str
+                or "Server disconnected" in err_str
+                or "RemoteProtocolError" in err_str
+                or "connection closed" in err_str.lower()
+                or "peer closed connection" in err_str.lower()
+                or "incomplete chunked read" in err_str.lower()
+            ):
+                raise RetryableProviderError(f"Network/Protocol Error: {e}") from e
+
+            # 4. Loud Retry
+            raise UnknownProviderError(f"Unexpected Anthropic Error: {e}") from e
 
     def _solve(p: str) -> ModelResponse:
         content = []
@@ -70,12 +90,7 @@ def call_anthropic(
         kw = kwargs.copy()
         kw["messages"] = [{"role": "user", "content": content}]
         
-        def _run():
-            with client.messages.stream(**kw) as stream:
-                for _ in stream.text_stream: pass
-                return stream.get_final_message()
-        
-        final = run_with_retry(_run, _should_retry)
+        final = run_with_retry(lambda: _safe_stream(**kw))
         
         text_parts = []
         for block in final.content:
@@ -100,12 +115,7 @@ def call_anthropic(
                 {"role": "user", "content": p}
             ]
             
-            def _run():
-                with client.messages.stream(**kw) as stream:
-                    for _ in stream.text_stream: pass
-                    return stream.get_final_message()
-
-            final = run_with_retry(_run, _should_retry)
+            final = run_with_retry(lambda: _safe_stream(**kw))
             
             text_parts = []
             for block in final.content:
