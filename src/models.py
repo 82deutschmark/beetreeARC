@@ -86,7 +86,7 @@ def calculate_cost(model_config: ModelConfig, response: ModelResponse) -> float:
 def call_model(
     openai_client: OpenAI,
     anthropic_client: Anthropic,
-    google_client: genai.Client,
+    google_keys: list[str],
     prompt: str,
     model_arg: str,
     image_path: str = None,
@@ -116,10 +116,10 @@ def call_model(
             verbose=verbose,
         )
     elif config.provider == "google":
-        if not google_client:
-            raise RuntimeError("Google client not initialized.")
+        if not google_keys:
+            raise RuntimeError("Google keys not initialized.")
         return call_gemini(
-            google_client,
+            google_keys,
             prompt,
             config,
             image_path=image_path,

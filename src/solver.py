@@ -27,7 +27,7 @@ logger = get_logger("solver")
 def solve_task(
     openai_key: Optional[str],
     claude_key: Optional[str],
-    google_key: Optional[str],
+    google_keys: Optional[List[str]],
     task_path: Path,
     model_arg: str,
     strategy: str = None,
@@ -51,9 +51,7 @@ def solve_task(
     if claude_key:
         anthropic_client = Anthropic(api_key=claude_key, http_client=http_client)
         
-    google_client = None
-    if google_key:
-        google_client = genai.Client(api_key=google_key) # Gemini uses its own transport
+    # google_client removed
 
     try:
         task = load_task(task_path)
@@ -88,13 +86,13 @@ def solve_task(
                      raise RuntimeError("OpenAI API key missing.")
                 if "claude" in model_arg and not anthropic_client:
                      raise RuntimeError("Anthropic API key missing.")
-                if "gemini" in model_arg and not google_client:
-                     raise RuntimeError("Google API key missing.")
+                if "gemini" in model_arg and not google_keys:
+                     raise RuntimeError("Google API keys missing.")
 
                 model_response = call_model(
                     openai_client,
                     anthropic_client,
-                    google_client,
+                    google_keys,
                     prompt,
                     model_arg,
                     image_path=image_path,
@@ -129,7 +127,7 @@ def solve_task(
                         model_response_b = call_model(
                             openai_client,
                             anthropic_client,
-                            google_client,
+                            google_keys,
                             prompt,
                             model_arg,
                             image_path=image_path,
@@ -167,7 +165,7 @@ def solve_task(
                                         _v_resp = call_model(
                                             openai_client,
                                             anthropic_client,
-                                            google_client,
+                                            google_keys,
                                             _v_prompt,
                                             model_arg,
                                             return_strategy=False,

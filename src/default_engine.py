@@ -40,21 +40,21 @@ def run_default_mode(args, answer_path: Path = None):
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    openai_key, claude_key, google_key = get_api_keys()
+    openai_key, claude_key, google_keys = get_api_keys()
     
     if not claude_key:
         print("Error: Anthropic API key not found.", file=sys.stderr)
         sys.exit(1)
     if not openai_key:
         print("Warning: OpenAI API key not found. GPT-5.1 models will fail.", file=sys.stderr)
-    if not google_key:
-        print("Warning: Google API key not found. Gemini models will fail.", file=sys.stderr)
+    if not google_keys:
+        print("Warning: Google API keys not found. Gemini models will fail.", file=sys.stderr)
 
     os.environ["SSL_CERT_FILE"] = certifi.where()
     http_client = httpx.Client(timeout=3600.0, transport=httpx.HTTPTransport(retries=3, verify=False), limits=httpx.Limits(keepalive_expiry=3600), verify=False)
     anthropic_client = Anthropic(api_key=claude_key, http_client=http_client)
     openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
-    google_client = genai.Client(api_key=google_key) if google_key else None
+    # google_client removed
 
     try:
         task = load_task(task_path, answer_path=answer_path)
@@ -104,7 +104,7 @@ def run_default_mode(args, answer_path: Path = None):
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         for run in run_list:
-            future = executor.submit(run_single_model, run["name"], run["run_id"], prompt, test_example, openai_client, anthropic_client, google_client, args.verbose, image_path)
+            future = executor.submit(run_single_model, run["name"], run["run_id"], prompt, test_example, openai_client, anthropic_client, google_keys, args.verbose, image_path)
             future_to_run_id[future] = run["run_id"]
         
         completed_count = 0

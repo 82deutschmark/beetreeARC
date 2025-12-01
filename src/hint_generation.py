@@ -117,17 +117,17 @@ HINT_START
 HINT_END
 """
 
-    openai_key, claude_key, google_key = get_api_keys()
+    openai_key, claude_key, google_keys = get_api_keys()
     http_client = httpx.Client(timeout=3600.0)
     openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
     anthropic_client = Anthropic(api_key=claude_key, http_client=http_client) if claude_key else None
-    google_client = genai.Client(api_key=google_key) if google_key else None
+    # google_client instantiation removed as we now pass keys directly
 
     try:
         response = call_model(
             openai_client=openai_client,
             anthropic_client=anthropic_client,
-            google_client=google_client,
+            google_keys=google_keys,
             prompt=prompt,
             model_arg=hint_model_arg,
             image_path=image_path,

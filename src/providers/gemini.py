@@ -1,5 +1,6 @@
 import sys
 import warnings
+import random
 from typing import Optional
 import PIL.Image
 
@@ -15,7 +16,7 @@ from src.errors import RetryableProviderError, NonRetryableProviderError, Unknow
 logger = get_logger("providers.gemini")
 
 def call_gemini(
-    client: genai.Client,
+    keys: list[str],
     prompt: str,
     config: ModelConfig,
     image_path: str = None,
@@ -25,6 +26,18 @@ def call_gemini(
     
     model = config.base_model
     thinking_level = str(config.config)
+    
+    # Randomly select a key
+    if not keys:
+        raise RuntimeError("No Gemini API keys provided.")
+    selected_key = random.choice(keys)
+    # We can log the key index for debugging
+    key_index = keys.index(selected_key)
+    if verbose:
+        logger.info(f"Using Gemini Key index {key_index}")
+
+    # Instantiate a local client for this call (thread-safe)
+    client = genai.Client(api_key=selected_key)
 
     # Use thinking_level with string literals "LOW" or "HIGH" (case insensitive usually, but standard is upper/lower matching the enum)
     # Typically the SDK accepts "low" / "high" strings for this field if typed as ThinkingLevel
@@ -39,7 +52,7 @@ def call_gemini(
         )
     )
 
-    # Shared chat object for state
+    # Shared chat object for state within this function call
     chat = client.chats.create(model=model, config=gen_config)
 
     def _safe_send(message):
@@ -51,11 +64,11 @@ def call_gemini(
         except Exception as e:
             # 1. Known SDK Retryables
             if isinstance(e, (google_exceptions.ResourceExhausted, google_exceptions.ServiceUnavailable, google_exceptions.InternalServerError, google_exceptions.TooManyRequests)):
-                 raise RetryableProviderError(f"Gemini Transient Error: {e}") from e
+                 raise RetryableProviderError(f"Gemini Transient Error (Key #{key_index}): {e}") from e
             
             # 2. Known SDK Non-Retryables
             if isinstance(e, (google_exceptions.InvalidArgument, google_exceptions.PermissionDenied, google_exceptions.Unauthenticated)):
-                 raise NonRetryableProviderError(f"Gemini Fatal Error: {e}") from e
+                 raise NonRetryableProviderError(f"Gemini Fatal Error (Key #{key_index}): {e}") from e
 
             # 3. String matching for other errors
             err_str = str(e)
@@ -69,10 +82,10 @@ def call_gemini(
                 or "peer closed connection" in err_str.lower()
                 or "incomplete chunked read" in err_str.lower()
             ):
-                raise RetryableProviderError(f"Network/Protocol Error: {e}") from e
+                raise RetryableProviderError(f"Network/Protocol Error (Key #{key_index}): {e}") from e
 
             # 4. Loud Retry
-            raise UnknownProviderError(f"Unexpected Gemini Error: {e}") from e
+            raise UnknownProviderError(f"Unexpected Gemini Error (Key #{key_index}): {e}") from e
 
     def _solve(p: str) -> ModelResponse:
         # Pass raw string to avoid Pydantic warnings; SDK handles wrapping

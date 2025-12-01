@@ -28,7 +28,7 @@ def main() -> None:
     setup_logging(args.verbose)
     logger = get_logger("main")
 
-    openai_key, claude_key, google_key = get_api_keys()
+    openai_key, claude_key, google_keys = get_api_keys()
 
     task_source = args.task_source
     if task_source.endswith(".json"):
@@ -67,7 +67,7 @@ def main() -> None:
                     solve_task,
                     openai_key,
                     claude_key,
-                    google_key,
+                    google_keys,
                     path,
                     args.model,
                     args.strategy,

@@ -65,12 +65,23 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-def get_api_keys() -> tuple[Optional[str], Optional[str], Optional[str]]:
+def get_api_keys() -> tuple[Optional[str], Optional[str], list[str]]:
     openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
         raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
     
     claude_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
-    google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     
-    return openai_key, claude_key, google_key
+    google_keys = []
+    main_key = os.getenv("GEMINI_API_KEY")
+    if main_key:
+        google_keys.append(main_key)
+        
+    # Look for GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
+    # We'll check a reasonable range, e.g., 1 to 100
+    for i in range(1, 101):
+        key = os.getenv(f"GEMINI_API_KEY_{i}")
+        if key:
+            google_keys.append(key)
+            
+    return openai_key, claude_key, google_keys

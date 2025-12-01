@@ -39,7 +39,7 @@ class ProgressReporter:
             "timestamp": time.time(),
         })
 
-def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path=None, run_timestamp=None):
+def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=None, run_timestamp=None):
     all_results = []
     with ThreadPoolExecutor(max_workers=10) as executor:
         
@@ -52,7 +52,7 @@ def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test
             run_list.append({"name": model_name, "run_id": run_id})
 
         future_to_run_id = {
-            executor.submit(run_single_model, run["name"], run["run_id"], prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path, run_timestamp): run["run_id"]
+            executor.submit(run_single_model, run["name"], run["run_id"], prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path, run_timestamp): run["run_id"]
             for run in run_list
         }
 
@@ -70,7 +70,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
         if is_testing:
             print("Solver testing mode activated.")
             # Models for --solver-testing
-            models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
+            models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none", "gemini-3-low"]
             models_step3 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
             models_step5 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
             hint_generation_model = "gpt-5.1-none"
@@ -106,11 +106,11 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
                 print(f"Error: {e}", file=sys.stderr)
                 sys.exit(1)
 
-        openai_key, claude_key, google_key = get_api_keys()
+        openai_key, claude_key, google_keys = get_api_keys()
         http_client = httpx.Client(timeout=3600.0)
         openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
         anthropic_client = Anthropic(api_key=claude_key, http_client=http_client) if claude_key else None
-        google_client = genai.Client(api_key=google_key) if google_key else None
+        # google_client instantiation removed as we now pass keys directly
 
         try:
             task = load_task(task_path, answer_path=answer_path)
@@ -186,7 +186,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
         step_1_log = {}
         print(f"Running {len(models_step1)} models...")
         prompt_step1 = build_prompt(task.train, test_example)
-        results_step1 = run_models_in_parallel(models_step1, run_id_counts, "step_1", prompt_step1, test_example, openai_client, anthropic_client, google_client, verbose, run_timestamp=run_timestamp)
+        results_step1 = run_models_in_parallel(models_step1, run_id_counts, "step_1", prompt_step1, test_example, openai_client, anthropic_client, google_keys, verbose, run_timestamp=run_timestamp)
         process_results(results_step1, step_1_log)
         write_step_log("step_1", step_1_log, run_timestamp)
 
@@ -206,7 +206,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
         step_3_log = {}
         print(f"Running {len(models_step3)} models...")
         prompt_step3 = build_prompt(task.train, test_example)
-        results_step3 = run_models_in_parallel(models_step3, run_id_counts, "step_3", prompt_step3, test_example, openai_client, anthropic_client, google_client, verbose, run_timestamp=run_timestamp)
+        results_step3 = run_models_in_parallel(models_step3, run_id_counts, "step_3", prompt_step3, test_example, openai_client, anthropic_client, google_keys, verbose, run_timestamp=run_timestamp)
         process_results(results_step3, step_3_log)
         write_step_log("step_3", step_3_log, run_timestamp)
 
@@ -228,7 +228,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
         def run_deep_thinking_step():
             print(f"Running {len(models_step5)} models with deep thinking...")
             prompt_deep = build_prompt(task.train, test_example, trigger_deep_thinking=True)
-            results_deep = run_models_in_parallel(models_step5, run_id_counts, "step_5_deep_thinking", prompt_deep, test_example, openai_client, anthropic_client, google_client, verbose, run_timestamp=run_timestamp)
+            results_deep = run_models_in_parallel(models_step5, run_id_counts, "step_5_deep_thinking", prompt_deep, test_example, openai_client, anthropic_client, google_keys, verbose, run_timestamp=run_timestamp)
             return "trigger-deep-thinking", results_deep
 
         def run_image_step():
@@ -236,7 +236,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
             image_path = f"logs/{run_timestamp}_{task_id}_{test_index}_step5_image.png"
             generate_and_save_image(task, image_path)
             prompt_image = build_prompt(task.train, test_example, image_path=image_path)
-            results_image = run_models_in_parallel(models_step5, run_id_counts, "step_5_image", prompt_image, test_example, openai_client, anthropic_client, google_client, verbose, image_path=image_path, run_timestamp=run_timestamp)
+            results_image = run_models_in_parallel(models_step5, run_id_counts, "step_5_image", prompt_image, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=image_path, run_timestamp=run_timestamp)
             return "image", results_image
 
         def run_hint_step():
@@ -250,7 +250,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
                     "Extracted hint": hint_data["hint"],
                 }
                 prompt_hint = build_prompt(task.train, test_example, strategy=hint_data["hint"])
-                results_hint = run_models_in_parallel(models_step5, run_id_counts, "step_5_generate_hint", prompt_hint, test_example, openai_client, anthropic_client, google_client, verbose, run_timestamp=run_timestamp)
+                results_hint = run_models_in_parallel(models_step5, run_id_counts, "step_5_generate_hint", prompt_hint, test_example, openai_client, anthropic_client, google_keys, verbose, run_timestamp=run_timestamp)
                 return "generate-hint", results_hint
             return "generate-hint", []
 

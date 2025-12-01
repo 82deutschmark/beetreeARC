@@ -35,7 +35,7 @@ def get_hints(task_path: Path, test_index: int, model_arg: str, verbose: bool = 
         The generated hints as a string.
     """
     logger = get_logger("get_hints")
-    openai_key, claude_key, google_key = get_api_keys()
+    openai_key, claude_key, google_keys = get_api_keys()
 
     http_client = httpx.Client(
         timeout=3600.0,
@@ -50,9 +50,7 @@ def get_hints(task_path: Path, test_index: int, model_arg: str, verbose: bool = 
     if claude_key:
         anthropic_client = Anthropic(api_key=claude_key, http_client=http_client)
         
-    google_client = None
-    if google_key:
-        google_client = genai.Client(api_key=google_key) # Gemini uses its own transport
+    # google_client instantiation removed
 
     try:
         task = load_task(task_path)
@@ -77,13 +75,13 @@ def get_hints(task_path: Path, test_index: int, model_arg: str, verbose: bool = 
                 raise RuntimeError("OpenAI API key missing.")
         if "claude" in model_arg and not anthropic_client:
                 raise RuntimeError("Anthropic API key missing.")
-        if "gemini" in model_arg and not google_client:
-                raise RuntimeError("Google API key missing.")
+        if "gemini" in model_arg and not google_keys:
+                raise RuntimeError("Google API keys missing.")
 
         model_response = call_model(
             openai_client,
             anthropic_client,
-            google_client,
+            google_keys,
             prompt,
             model_arg,
             return_strategy=True,
