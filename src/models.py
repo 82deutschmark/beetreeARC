@@ -66,7 +66,7 @@ def calculate_cost(model_config: ModelConfig, response: ModelResponse) -> float:
         base_model == GEMINI_3_BASE
         and response.prompt_tokens > 200000
     ):
-        pricing = {"input": 4.00, "cached_input": 0.0, "output": 18.00}
+        pricing = {"input": 4.00, "cached_input": 0.40, "output": 18.00}
 
     non_cached_input = max(
         0, response.prompt_tokens - response.cached_tokens

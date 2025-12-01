@@ -22,7 +22,7 @@ PRICING_PER_1M_TOKENS = {
     },
     GEMINI_3_BASE: {
         "input": 2.00,
-        "cached_input": 0.0,
+        "cached_input": 0.20,
         "output": 12.00,
     },
 }
