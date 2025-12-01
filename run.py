@@ -352,7 +352,15 @@ def main():
         for task_id, test_idx, preds in final_results:
             if not preds:
                 continue
-                
+            
+            # Save individual task/test result
+            individual_file = submission_dir / f"{run_timestamp}_{task_id}_{test_idx}.json"
+            try:
+                with open(individual_file, "w") as f:
+                    json.dump(preds, f, indent=2)
+            except Exception as e:
+                print(f"Error saving individual result for {task_id}:{test_idx}: {e}", file=sys.stderr)
+
             # preds is expected to be a list of dicts (top_groups) or similar structure
             # Each item: {'grid': [[...]], 'count': N, ...}
             
