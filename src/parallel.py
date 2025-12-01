@@ -1,0 +1,72 @@
+import time
+import re
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import httpx
+from openai import OpenAI
+from anthropic import Anthropic
+from google import genai
+
+from src.models import call_model, parse_model_arg, calculate_cost
+from src.utils import parse_grid_from_text, verify_prediction
+
+def run_single_model(model_name, run_id, prompt, test_example, openai_client, anthropic_client, google_client, verbose, image_path=None):
+    prefix = f"[{run_id}]"
+    if verbose:
+        print(f"{prefix} Initiating call...")
+        if image_path:
+            print(f"{prefix} Including image: {image_path}")
+
+    cost = 0.0
+    duration = 0.0
+    full_response = ""
+    try:
+        start_ts = time.perf_counter()
+        response = call_model(
+            openai_client=openai_client,
+            anthropic_client=anthropic_client,
+            google_client=google_client,
+            prompt=prompt,
+            model_arg=model_name,
+            image_path=image_path,
+            return_strategy=False,
+            verbose=verbose
+        )
+        duration = time.perf_counter() - start_ts
+        full_response = response.text
+        
+        try:
+            model_config = parse_model_arg(model_name)
+            cost = calculate_cost(model_config, response)
+        except Exception:
+            pass
+
+        if verbose:
+            print(f"{prefix} Response received.")
+
+        grid_text = response.text
+        
+        try:
+            predicted_grid = parse_grid_from_text(grid_text)
+            is_correct = verify_prediction(predicted_grid, test_example.output)
+            
+            if verbose:
+                if is_correct:
+                    print(f"{prefix} Result: PASS")
+                else:
+                    print(f"{prefix} Result: FAIL")
+                    print(f"\n{prefix} Predicted Grid:")
+                    print(grid_text)
+            
+            return {"model": model_name, "run_id": run_id, "grid": predicted_grid, "is_correct": is_correct, "cost": cost, "duration": duration, "prompt": prompt, "full_response": full_response}
+                    
+        except ValueError as e:
+            if verbose:
+                print(f"{prefix} Result: FAIL (Parse Error: {e})")
+                print(f"\n{prefix} Raw Output:\n{grid_text}")
+            return {"model": model_name, "run_id": run_id, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": full_response}
+
+    except Exception as e:
+        print(f"{prefix} Error during execution: {e}", file=sys.stderr)
+        return {"model": model_name, "run_id": run_id, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": str(e)}
