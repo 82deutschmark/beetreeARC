@@ -3,20 +3,34 @@
 ## Quickstart
 
 ```bash
-git clone <repo-url>
-cd ARC-AGI
-python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+git clone https://github.com/beetree/ARC-AGI
+cd ARC-AGI/
+# Ensure you have at least python 3.11
+python3.11 -m venv .venv
+source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-cp config/api_keys.env.example config/api_keys.env  # then add your keys
-# Export secrets (options below)
-# Option A: export variables manually
-export OPENAI_API_KEY=...
-# Option B: source the config with auto-export in the shell session
+cp config/api_keys.env.example config/api_keys.env
+# Add your keys
 set -a && source config/api_keys.env && set +a
-python main.py data/first_100.json --reasoning none
+python run.py --task-directory tasks_no_answers_single_task/ --answers-directory answers_only_single_task/
 ```
+You should see something like this, and it should complete in a few minutes only
+
+```
+(.venv) johan@DESKTOP-9NEKHDK:~/tmp/ARC-AGI$ python run.py --task-directory tasks_no_answers_single_task/ --answers-directory answers_only_single_task/
+Found 1 task files. Total test cases: 1
+Starting batch execution with 20 parallel task workers...
+
+  Task         Status       Step                      Outcome   Duration
+ ────────────────────────────────────────────────────────────────────────
+  2ba387bc:1   🟡 RUNNING   Step 1 (Shallow search)                04:03
+```
+
+The --solver-testing activates an extremely dumb solver that will fail on all problems, but it still runs through the full flow. Hence, it's good for testing that the environment is properly set up, all keys are working, etc.
+
+
+
 
 The `.venv/` directory is ignored by Git, so every contributor can maintain their own environment locally without polluting the repo. Add any third-party libraries you install to `requirements.txt` so others can reproduce the environment quickly.
 
