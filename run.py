@@ -28,7 +28,7 @@ def main():
     
     parser.add_argument("--test", type=int, default=1, help="Test case index (1-based, default: 1). Ignored if --task-directory is used.")
     parser.add_argument("--workers", type=int, default=10, help="Number of parallel workers (default: 10) PER TASK.")
-    parser.add_argument("--task-workers", type=int, default=1, help="Number of tasks to run in parallel (default: 1). CAUTION: Divides global rate limits by this factor.")
+    parser.add_argument("--task-workers", type=int, default=20, help="Number of tasks to run in parallel (default: 20). CAUTION: Divides global rate limits by this factor.")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--models", type=str, help="Comma-separated list of models to run")
     parser.add_argument("--hint", type=str, default=None, help="Optional hint to provide to the model")
