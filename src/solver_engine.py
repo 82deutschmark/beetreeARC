@@ -70,7 +70,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
         if is_testing:
             print("Solver testing mode activated.")
             # Models for --solver-testing
-            models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
+            models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none", "gemini-3-low"]
             models_step3 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
             models_step5 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
             hint_generation_model = "gpt-5.1-none"
