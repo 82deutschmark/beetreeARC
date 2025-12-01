@@ -202,3 +202,5 @@ def run_default_mode(args):
             if group['is_correct']:
                 print(f"Group {i+1}: Count={group['count']}, Correct={group['is_correct']}")
                 print(f"  Models: {', '.join(group['models'])}")
+    
+    return top_groups

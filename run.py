@@ -4,6 +4,7 @@ import os
 import time
 import warnings
 import queue
+import json
 import multiprocessing
 from pathlib import Path
 from datetime import datetime
@@ -49,6 +50,8 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
     args.task = str(task_path)
     args.test = test_index
     
+    predictions = None
+
     if quiet:
         # Redirect stdout/stderr to dummy file to prevent interrupting the UI
         devnull = DummyFile()
@@ -57,10 +60,10 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
         sys.stderr = devnull
         try:
             if args.solver or args.solver_testing:
-                run_solver_mode(task_id, test_index, args.verbose, is_testing=args.solver_testing, run_timestamp=run_timestamp, task_path=task_path, progress_queue=progress_queue)
+                predictions = run_solver_mode(task_id, test_index, args.verbose, is_testing=args.solver_testing, run_timestamp=run_timestamp, task_path=task_path, progress_queue=progress_queue)
             else:
                 # default mode doesn't support progress_queue yet, so it will just run silently if quiet=True
-                run_default_mode(args)
+                predictions = run_default_mode(args)
         except Exception as e:
              # If we have a queue, try to report the crash
             if progress_queue:
@@ -83,11 +86,13 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
         with PrefixedStdout(prefix):
             try:
                 if args.solver or args.solver_testing:
-                    run_solver_mode(task_id, test_index, args.verbose, is_testing=args.solver_testing, run_timestamp=run_timestamp, task_path=task_path, progress_queue=progress_queue)
+                    predictions = run_solver_mode(task_id, test_index, args.verbose, is_testing=args.solver_testing, run_timestamp=run_timestamp, task_path=task_path, progress_queue=progress_queue)
                 else:
-                    run_default_mode(args)
+                    predictions = run_default_mode(args)
             except Exception as e:
                 raise e
+    
+    return task_id, test_index, predictions
 
 def render_table(task_states):
     table = Table(box=box.SIMPLE)
@@ -147,6 +152,8 @@ def update_task_states(task_states, msg):
     
     if msg.get("event") == "FINISH":
         state["end_time"] = msg["timestamp"]
+        if "predictions" in msg:
+            state["predictions"] = msg["predictions"]
 
 def main():
     run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -168,6 +175,7 @@ def main():
     parser.add_argument("--generate-hint", action="store_true", help="Generate a hint for the task using a separate model call.")
     parser.add_argument("--generate-hint-model", type=str, default="gpt-5.1-high", help="Model to use for generating hints.")
     parser.add_argument("--no-dashboard", action="store_true", help="Disable the rich dashboard in batch mode.")
+    parser.add_argument("--submissions-directory", type=str, default="submissions/", help="Directory to save submission files (default: submissions/).")
 
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument("--solver", action="store_true", help="Enable solver mode.")
@@ -211,6 +219,8 @@ def main():
         # Determine if we should use the dashboard
         use_dashboard = RICH_AVAILABLE and sys.stdout.isatty() and not args.no_dashboard and (args.solver or args.solver_testing)
 
+        final_results = []
+
         if use_dashboard:
             manager = multiprocessing.Manager()
             progress_queue = manager.Queue()
@@ -246,7 +256,8 @@ def main():
                                 remaining_futures.remove(fut)
                                 task_path, test_idx = future_to_task[fut]
                                 try:
-                                    fut.result()
+                                    res = fut.result()
+                                    final_results.append(res)
                                 except SystemExit as se:
                                     # Worker exited with sys.exit()
                                     key = f"{task_path.stem}:{test_idx}"
@@ -317,6 +328,7 @@ def main():
 
         else:
             # Fallback to plain logging (interleaved)
+            final_results = []
             with concurrent.futures.ProcessPoolExecutor(max_workers=args.task_workers) as executor:
                 future_to_task = {
                     executor.submit(execute_task, args, task_path, test_idx, run_timestamp, rate_limit_scale, None, False): (task_path, test_idx)
@@ -325,12 +337,113 @@ def main():
                 
                 for future in concurrent.futures.as_completed(future_to_task):
                     try:
-                        future.result()
+                        res = future.result()
+                        final_results.append(res)
                     except Exception as e:
                         print(f"Task failed: {e}", file=sys.stderr)
+                        
+        # Generate Submission File
+        submission_dir = Path(args.submissions_directory)
+        submission_dir.mkdir(parents=True, exist_ok=True)
+        submission_file = submission_dir / f"{run_timestamp}_submission.json"
+        
+        submission_data = {}
+        
+        for task_id, test_idx, preds in final_results:
+            if not preds:
+                continue
                 
+            # preds is expected to be a list of dicts (top_groups) or similar structure
+            # Each item: {'grid': [[...]], 'count': N, ...}
+            
+            # We need 2 attempts per test input
+            # If we have > 0 predictions, take the top 2
+            
+            candidates = []
+            if isinstance(preds, list):
+                # Assume it's the top_groups list
+                for p in preds:
+                    if isinstance(p, dict) and "grid" in p:
+                        candidates.append(p["grid"])
+            
+            if not candidates:
+                continue
+                
+            attempt_1 = candidates[0]
+            attempt_2 = candidates[1] if len(candidates) > 1 else candidates[0]
+            
+            if task_id not in submission_data:
+                submission_data[task_id] = []
+            
+            # Ensure we place the prediction at the correct index
+            # We need to handle the fact that test_idx is 1-based coming from execute_task
+            # But submission_data expects a list of predictions corresponding to test inputs
+            
+            # Since we run tasks in parallel and they might return out of order, 
+            # and we might be running a subset, this is tricky.
+            # However, the prompt says: "For each task, you must provide predictions for every test input."
+            # And "Shape: { '<task_id>': [ PredictionForTest0, PredictionForTest1, ... ] }"
+            
+            # We need to know how many test inputs the task has to initialize the list correctly.
+            # In batch mode, we loaded the tasks, so we could know.
+            # But here we just have results.
+            
+            # Let's build a temporary dict: task_id -> { test_idx: {attempt_1, attempt_2} }
+            pass # Logic continues below
+            
+        # Re-process to format correctly
+        formatted_submission = {}
+        
+        # Group by task_id
+        task_results = {}
+        for task_id, test_idx, preds in final_results:
+             if task_id not in task_results:
+                 task_results[task_id] = {}
+             task_results[task_id][test_idx] = preds
+
+        for task_id, tests in task_results.items():
+            # We need to determine the number of tests. 
+            # We can assume the max test_idx found is the number of tests? 
+            # Or just use the indices we have.
+            # If we are running a subset, we can't produce a valid full submission file anyway.
+            # So let's just output what we have, sorted by test_index.
+            
+            max_idx = max(tests.keys())
+            formatted_submission[task_id] = []
+            
+            for i in range(1, max_idx + 1):
+                preds = tests.get(i)
+                attempt_1 = [[0]] # Default empty/fail
+                attempt_2 = [[0]]
+                
+                if preds:
+                    candidates = []
+                    if isinstance(preds, list):
+                        for p in preds:
+                            if isinstance(p, dict) and "grid" in p:
+                                candidates.append(p["grid"])
+                    elif isinstance(preds, tuple) and len(preds) == 2 and isinstance(preds[0], list):
+                         # Handle potential differnt return format if any
+                         pass
+                         
+                    if candidates:
+                        attempt_1 = candidates[0]
+                        attempt_2 = candidates[1] if len(candidates) > 1 else candidates[0]
+                
+                formatted_submission[task_id].append({
+                    "attempt_1": attempt_1,
+                    "attempt_2": attempt_2
+                })
+
+        with open(submission_file, "w") as f:
+            json.dump(formatted_submission, f)
+            
+        print(f"Submission file saved to: {submission_file}")
+
     else:
         # Single task mode
+        # ... existing code ...
+
         try:
             task_path = find_task_path(args.task)
             execute_task(args, task_path, args.test, run_timestamp)

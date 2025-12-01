@@ -25,7 +25,7 @@ class ProgressReporter:
         self.task_id = task_id
         self.test_index = test_index
 
-    def emit(self, status, step, outcome=None, event=None):
+    def emit(self, status, step, outcome=None, event=None, predictions=None):
         if self.queue is None:
             return
         self.queue.put({
@@ -35,6 +35,7 @@ class ProgressReporter:
             "step": step,
             "outcome": outcome,
             "event": event,
+            "predictions": predictions,
             "timestamp": time.time(),
         })
 
@@ -178,8 +179,8 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
             write_step_log("step_finish", finish_log, run_timestamp)
             print_summary()
             http_client.close()
-            reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH")
-            return
+            reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH", predictions=picked_solutions)
+            return picked_solutions
 
         # STEP 3
         print("\n--- STEP 3: Second model run ---")
@@ -204,8 +205,8 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
             write_step_log("step_finish", finish_log, run_timestamp)
             print_summary()
             http_client.close()
-            reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH")
-            return
+            reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH", predictions=picked_solutions)
+            return picked_solutions
 
         # STEP 5
         print("\n--- STEP 5: Final model runs (in parallel) ---")
@@ -261,7 +262,8 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
             
         print_summary()
         http_client.close()
-        reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH")
+        reporter.emit("COMPLETED", "Finished", outcome=("PASS" if result else "FAIL"), event="FINISH", predictions=picked_solutions)
+        return picked_solutions
         
     except Exception as e:
         reporter.emit("ERROR", "Crashed", outcome="FAIL", event="FINISH")
