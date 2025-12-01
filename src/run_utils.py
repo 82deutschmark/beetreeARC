@@ -13,7 +13,6 @@ def find_task_path(task_id: str) -> Path:
     raise FileNotFoundError(f"Task file for '{task_id}' not found in data/arc-agi-2-evaluation/.")
 
 def is_solved(candidates_object) -> bool:
-    # Temporary implementation
     if not candidates_object:
         return False
 
@@ -21,14 +20,23 @@ def is_solved(candidates_object) -> bool:
     if total_model_runs == 0:
         return False
 
-    max_count = 0
-    for group in candidates_object.values():
-        if group['count'] > max_count:
-            max_count = group['count']
-
+    sorted_groups = sorted(candidates_object.values(), key=lambda g: g['count'], reverse=True)
+    top_group = sorted_groups[0]
+    max_count = top_group['count']
+    
     percentage = (max_count / total_model_runs)
     
-    return percentage > 0.25 and max_count >= 3
+    # Condition 1: count > 25%
+    # Condition 2: count >= 3
+    if not (percentage > 0.25 and max_count >= 3):
+        return False
+        
+    # Condition 3: all other groups have exactly count=1
+    for group in sorted_groups[1:]:
+        if group['count'] != 1:
+            return False
+            
+    return True
 
 def pick_solution(candidates_object):
     # Temporary implementation
