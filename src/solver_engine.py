@@ -157,7 +157,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
         # STEP 1
         print("\n--- STEP 1: Initial model run ---")
-        reporter.emit("RUNNING", "Step 1 (Initial)", event="STEP_CHANGE")
+        reporter.emit("RUNNING", "Step 1 (Shallow search)", event="STEP_CHANGE")
         step_1_log = {}
         print(f"Running {len(models_step1)} models...")
         prompt_step1 = build_prompt(task.train, test_example)
@@ -167,7 +167,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
         # STEP 2
         print("\n--- STEP 2: First check ---")
-        reporter.emit("RUNNING", "Step 2 (Check)", event="STEP_CHANGE")
+        reporter.emit("RUNNING", "Step 2 (Evaluation)", event="STEP_CHANGE")
         solved = is_solved(candidates_object)
         step_2_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "is_solved": solved}
         write_step_log("step_2", step_2_log, run_timestamp)
@@ -183,7 +183,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
         # STEP 3
         print("\n--- STEP 3: Second model run ---")
-        reporter.emit("RUNNING", "Step 3 (Extending)", event="STEP_CHANGE")
+        reporter.emit("RUNNING", "Step 3 (Extended search)", event="STEP_CHANGE")
         step_3_log = {}
         print(f"Running {len(models_step3)} models...")
         prompt_step3 = build_prompt(task.train, test_example)
@@ -193,7 +193,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
         # STEP 4
         print("\n--- STEP 4: Second check ---")
-        reporter.emit("RUNNING", "Step 4 (Check)", event="STEP_CHANGE")
+        reporter.emit("RUNNING", "Step 4 (Evaluation)", event="STEP_CHANGE")
         solved = is_solved(candidates_object)
         step_4_log = {"candidates_object": {str(k): v for k, v in candidates_object.items()}, "is_solved": solved}
         write_step_log("step_4", step_4_log, run_timestamp)
@@ -209,7 +209,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
         # STEP 5
         print("\n--- STEP 5: Final model runs (in parallel) ---")
-        reporter.emit("RUNNING", "Step 5 (Deep/Hint)", event="STEP_CHANGE")
+        reporter.emit("RUNNING", "Step 5 (Full search)", event="STEP_CHANGE")
         step_5_log = {"trigger-deep-thinking": {}, "image": {}, "generate-hint": {}}
 
         def run_deep_thinking_step():
