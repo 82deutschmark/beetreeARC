@@ -81,6 +81,8 @@ I've done a bunch of analysis to come to this algorithm that may be informative 
 
 My last run through on the Eval 2 dataset yielded a 50.3% solved problems (each sub task measured independently). 
 
+Full results here: https://github.com/beetree/ARC-AGI/blob/main/RESULTS.md
+
 ## Next steps
 
 The next improvements that I'm hoping to do to my algorithm are:
