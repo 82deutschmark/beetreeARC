@@ -179,15 +179,16 @@ Full results below:
 
 I'm particularly proud that the solver solved the following problems which I believe (??) are previously unsolved by any solver:
 
-64efde09
-3dc255db
-36a08778
-20270e3b
-20270e3b
-221dfab4
-28a6681f
-9385bd28
-b6f77b65
-b6f77b65
-d35bdbdc
-
+| Problem |
+|---------|
+| 64efde09:1 |
+| 3dc255db:1 |
+| 36a08778:2 |
+| 20270e3b:1 |
+| 20270e3b:2 |
+| 221dfab4:1 |
+| 28a6681f:1 |
+| 9385bd28:1 |
+| b6f77b65:1 |
+| b6f77b65:2 |
+| d35bdbdc:3 |
