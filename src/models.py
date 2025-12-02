@@ -8,6 +8,7 @@ from src.types import (
     SUPPORTED_MODELS, 
     PRICING_PER_1M_TOKENS,
     GPT_5_1_BASE,
+    GPT_5_1_CODEX_MINI_BASE,
     CLAUDE_SONNET_BASE,
     CLAUDE_OPUS_BASE,
     GEMINI_3_BASE
@@ -19,6 +20,10 @@ from src.providers.gemini import call_gemini
 def parse_model_arg(model_arg: str) -> ModelConfig:
     if model_arg not in SUPPORTED_MODELS:
         raise ValueError(f"Model '{model_arg}' not supported. Choose from {SUPPORTED_MODELS}")
+
+    # GPT-5.1 Codex Mini - special case (no reasoning effort, just the model)
+    if model_arg == "gpt-5.1-codex-mini":
+        return ModelConfig("openai", GPT_5_1_CODEX_MINI_BASE, "none")
 
     if model_arg.startswith("gpt-5.1-"):
         parts = model_arg.split("-")

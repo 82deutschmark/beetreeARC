@@ -69,18 +69,18 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
     try:
         if is_testing:
             print("Solver testing mode activated.")
-            # Models for --solver-testing
-            models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none", "gemini-3-low"]
-            models_step3 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
-            models_step5 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
-            hint_generation_model = "gpt-5.1-none"
+            # Testing mode: GPT-5.1 Codex Mini only (cheap, fast)
+            models_step1 = ["gpt-5.1-codex-mini", "gpt-5.1-codex-mini", "gpt-5.1-codex-mini"]
+            models_step3 = ["gpt-5.1-codex-mini", "gpt-5.1-codex-mini"]
+            models_step5 = ["gpt-5.1-codex-mini", "gpt-5.1-codex-mini"]
+            hint_generation_model = "gpt-5.1-codex-mini"
         else:
             print("Solver mode activated.")
-            # Models for --solver
-            models_step1 = ["claude-sonnet-4.5-thinking-60000", "claude-sonnet-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gpt-5.1-high", "gemini-3-high", "gemini-3-high"]
-            models_step3 = ["claude-opus-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gpt-5.1-high", "gemini-3-high", "gemini-3-high"]
-            models_step5 = ["claude-opus-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gpt-5.1-high", "gemini-3-high", "gemini-3-high"]
-            hint_generation_model = "gpt-5.1-high"
+            # Production mode: Gemini 3 Pro only (comprehensive)
+            models_step1 = ["gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high"]
+            models_step3 = ["gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high"]
+            models_step5 = ["gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high", "gemini-3-high"]
+            hint_generation_model = "gemini-3-high"
         
         setup_logging(verbose)
 
