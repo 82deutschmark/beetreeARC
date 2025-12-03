@@ -77,6 +77,12 @@ This is mainly an LLM based algorithm across the major frontier models. It does 
 
 I've done a bunch of analysis to come to this algorithm that may be informative to others trying to solve ARC AGI. Please see below for some of that analysis, or just hook me up on the ARC AGI discord channel.
 
+## Performance
+
+My last run through on the Eval 2 dataset yielded a 50.3% solved problems (each sub task measured independently). 
+
+Full results here: https://github.com/beetree/ARC-AGI/blob/main/RESULTS.md
+
 ## Next steps
 
 The next improvements that I'm hoping to do to my algorithm are:
