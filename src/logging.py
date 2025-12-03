@@ -3,8 +3,14 @@ import sys
 import json
 import datetime
 import traceback
-import fcntl
 from pathlib import Path
+
+# fcntl is Unix/Linux only; safely handle Windows
+try:
+    import fcntl
+except ImportError:
+    # Windows doesn't have fcntl; the wrapper will inject a stub if needed
+    fcntl = None  # type: ignore[assignment]
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
     """
@@ -121,11 +127,15 @@ def log_failure(
 
         with open(failures_path, "a", encoding="utf-8") as f:
             try:
-                fcntl.flock(f, fcntl.LOCK_EX)
+                # Attempt file locking if available (Unix/Linux)
+                if fcntl and hasattr(fcntl, 'flock'):
+                    fcntl.flock(f, fcntl.LOCK_EX)
                 f.write(json_entry + "\n")
                 f.flush() # Ensure it hits the disk
             finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+                # Release lock if it was acquired
+                if fcntl and hasattr(fcntl, 'flock'):
+                    fcntl.flock(f, fcntl.LOCK_UN)
                 
     except Exception as e:
         # Fallback: Don't let logging crash the application
