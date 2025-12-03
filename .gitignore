@@ -8,3 +8,4 @@ answers_batch/
 config/api_keys_all.env
 submissions/
 tasks_batch/
+logs_backup/
