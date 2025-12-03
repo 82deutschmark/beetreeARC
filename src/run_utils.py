@@ -7,10 +7,20 @@ def find_task_path(task_id: str) -> Path:
         if p.exists():
             return p
         task_id = p.stem
-    candidate = Path("data/arc-agi-2-evaluation") / f"{task_id}.json"
-    if candidate.exists():
-        return candidate
-    raise FileNotFoundError(f"Task file for '{task_id}' not found in data/arc-agi-2-evaluation/.")
+
+    # Try multiple data directories (arc-explainer project structure)
+    search_dirs = [
+        Path("data/evaluation"),
+        Path("data/evaluation2"),
+        Path("data/arc-agi-2-evaluation"),  # fallback for other structures
+    ]
+
+    for search_dir in search_dirs:
+        candidate = search_dir / f"{task_id}.json"
+        if candidate.exists():
+            return candidate
+
+    raise FileNotFoundError(f"Task file for '{task_id}' not found in any of: {', '.join(str(d) for d in search_dirs)}")
 
 def is_solved(candidates_object) -> bool:
     if not candidates_object:
