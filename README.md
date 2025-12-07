@@ -97,14 +97,14 @@ Full results here: https://github.com/beetree/ARC-AGI/blob/main/RESULTS.md
 ## Next steps
 
 The next improvements that I'm hoping to do to my algorithm are:
-- Implement a sparse grid representation as part of the search for solutions
 - Use the reasoning traces in better choosing and refining the solutions
 - I suppose I should implement an explicit python based solver too. I don't like the idea of doing the search in "python space" (seems inefficient) but I can see it being very powerful in verifying solutions, or even "implementing the best of solutions"
-- Improve the search within problems by extracting the "most obvious transformation", and then just applying that to all the inputs (including the "test" set) and then solving the problem
 - In my current algorithm, it seems that the multi modal part of the solver is only marginally adding to the performance, but I want to experiment a bit more with nano banana pro, imagen, sora, veo, etc. I think there is a fundamentally additative form of insights that come from these models
 - Grok doesn't seem to be particularly performant, but I guess I should try it out too. I'm more curious about the chinese open source models. They may add completely other angles that could be highly complimentary.
 - Test anthropic-beta: effort-2025-11-24, with reasoning high and maybe temperatur?
 - Try gemini 3 with 2.0 temperature
+- ~~Implement a sparse grid representation as part of the search for solutions~~
+- ~~Improve the search within problems by extracting the "most obvious transformation", and then just applying that to all the inputs (including the "test" set) and then solving the problem~~
 - ~~There's something broken with my gemini implementation. Google is for sure using something else (other settings, or other model) in their submission to arc agi 2, not sure how to reconcile~~
 - ~~Be more conscious around temperature and possibly other model parameters as well~~
 - ~~Improve on the hint methodology, there's more performance to gain here~~
