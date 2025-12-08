@@ -176,8 +176,8 @@ def build_prompt(
         lines.append("")
         lines.append(objects_insertion)
         lines.append("")
-        lines.append("Respond with an explanation of your thinking followed by the completed output grid.")
+        lines.append("Respond with an explanation of your thinking that is detailed enough that someone can reconstruct your solution. Afterwards, you MUST also respond with the completed output grid.")
     else:
-        lines.append("Respond with an explanation of your thinking followed by the completed output grid.")
+        lines.append("Respond with an explanation of your thinking that is detailed enough that someone can reconstruct your solution. Afterwards, you MUST also respond with the completed output grid.")
 
     return "\n".join(lines)

@@ -1,13 +1,6 @@
-config/api_keys.env
-.venv/
-__pycache__/
-logs/
-data/
-image_generation.md
-answers_batch/
-config/api_keys_all.env
 submissions/
 tasks_batch*/
 logs_backup/
 run_2025_*/
 config/api_keys_ff.env
+config/api_keys_personal.env
