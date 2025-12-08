@@ -80,8 +80,8 @@ I've done a bunch of analysis to come to this algorithm that may be informative 
 ## Current performance
 
 I've added:
-1. An object / transformation solver
-2. ...
+1. An object / transformation solver: First step to identify all objects in the grids, second step to identify the most obvious transformations, third step to solve based on these as hints. Helps abstract away on noisy problems, e.g. https://arcprize.org/play?task=dbff022c
+2. Multi-agent ("ARC LOGIC AUDITOR" and "ARC Solution Auditor") answer judges. Helps find solutions in cases where they are hard to find, and many of the models make "obvious but identical mistakes" giving clusters around false solutions.
 3. ...
 
 The performance is: XXX
@@ -115,6 +115,26 @@ Also some small fixes needed:
 - Make hints speak in terms of color-numbers (e.g. #7)rather than explicit colors (e.g. orange)
 
 ## Historical analysis
+
+## Objects and transformations
+
+Significant performance increase on hard problems (likely +5-10pp on total) by splitting solvers into three steps:
+1. Extract objects
+2. Identify key transformations
+3. Feed objects and transformations to final solver
+
+On a problem like https://arcprize.org/play?task=dbff022c this significantly changes the performance. ~70% of all models cluster around a solution where they use the "palette" as top-to-bottom instead of inside-out. The object-transformation approach generates the correct solution by providing things like these:
+
+Objects 1: `Objects: Hollow Frames/Enclosures, Interior Fills/Pixels, Multi-colored Clusters, Background (Color 0).\n    Attributes: Color, Shape (rectangular vs irregular), Containment (empty vs filled), Connectivity.`
+
+Objects 2: `The grids contain: (1) rectangular frames/borders of single colors with hollow interiors, (2) multi-colored palette/key grids serving as reference blocks, (3) irregular shapes with non-rectangular or shifted boundaries, (4) small cross/plus patterns, and (5) patterned rectangles with partial fills. Key attributes include color (values 1-9, with 0 as background), size, position, boundary regularity (regular vs. irregular), and interior fill state (hollow, solid, patterned, or multi-colored).`
+
+Transformation 1: `The transformation identifies a multi-colored \"legend\" block to create a color mapping (Key -> Value) used to fill the hollow interiors of shapes. The orientation and reading direction of the legend depend on its aspect ratio and position: Wide blocks map vertically (Top->Bottom if at top, Bottom->Top if at bottom), while Tall blocks map horizontally (Left->Right). Objects with colors found in the 'Key' position of the legend have their enclosed areas filled with the corresponding 'Value' color; others remain unchanged.`
+
+Transformation 2: `1. **Identify palette**: A 2-row (horizontal) or 2-column (vertical) multi-colored grid serving as a lookup table\n2. **Create mapping**: First row/column = frame color keys; Second row/column = fill color values\n3. **For each shape with frame color in palette keys**: Replace all enclosed interior 0s with the mapped fill color\n4. **Shapes with colors NOT in keys**: Remain completely unchanged\n5. **Non-shape elements** (crosses, palette, exterior 0s): Remain unchanged\n6. **Frame colors never change**: Only interior 0s are modified`
+
+As you can see in the objects the concept of a palette is identified, and even the "bottom-top" logic which is key to coming to the right solution (which most models get wrong) is correctly identified.
+
 
 ### Base Model Performance
 [Base Model Analysis](ANALYZE_BASE_MODELS.md)
