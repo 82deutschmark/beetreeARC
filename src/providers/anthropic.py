@@ -20,6 +20,9 @@ def call_anthropic(
     image_path: str = None,
     return_strategy: bool = False,
     verbose: bool = False,
+    progress_queue=None,
+    task_id: str = None,
+    test_index: int = None,
 ) -> ModelResponse:
     MODEL_MAX_TOKENS = 64000
     
@@ -90,7 +93,12 @@ def call_anthropic(
         kw = kwargs.copy()
         kw["messages"] = [{"role": "user", "content": content}]
         
-        final = run_with_retry(lambda: _safe_stream(**kw))
+        final = run_with_retry(
+            lambda: _safe_stream(**kw),
+            progress_queue=progress_queue,
+            task_id=task_id,
+            test_index=test_index
+        )
         
         text_parts = []
         for block in final.content:
@@ -115,7 +123,12 @@ def call_anthropic(
                 {"role": "user", "content": p}
             ]
             
-            final = run_with_retry(lambda: _safe_stream(**kw))
+            final = run_with_retry(
+                lambda: _safe_stream(**kw),
+                progress_queue=progress_queue,
+                task_id=task_id,
+                test_index=test_index
+            )
             
             text_parts = []
             for block in final.content:

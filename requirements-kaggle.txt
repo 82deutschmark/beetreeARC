@@ -1,0 +1,14 @@
+# Core model clients
+openai
+anthropic
+google-genai
+
+# Utilities used by your solver
+tenacity
+tqdm
+rich<14
+docstring_parser
+typing-inspection
+jiter
+pydantic>=2,<3
+

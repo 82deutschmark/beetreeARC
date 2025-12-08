@@ -20,6 +20,9 @@ def call_openai_internal(
     image_path: str = None,
     return_strategy: bool = False,
     verbose: bool = False,
+    progress_queue=None,
+    task_id: str = None,
+    test_index: int = None,
 ) -> ModelResponse:
     
     model = config.base_model
@@ -77,7 +80,12 @@ def call_openai_internal(
         if reasoning_effort != "none":
             kwargs["reasoning"] = {"effort": reasoning_effort}
 
-        response = run_with_retry(lambda: _safe_create(**kwargs))
+        response = run_with_retry(
+            lambda: _safe_create(**kwargs),
+            progress_queue=progress_queue,
+            task_id=task_id,
+            test_index=test_index
+        )
 
         text_output = ""
         if hasattr(response, "output"):
@@ -109,7 +117,13 @@ def call_openai_internal(
                 "input": [{"role": "user", "content": p}],
                 "timeout": 3600
             }
-            response = run_with_retry(lambda: _safe_create(**kwargs))
+            # We don't necessarily need retry on the explain step to be as noisy, but good to have
+            response = run_with_retry(
+                lambda: _safe_create(**kwargs),
+                progress_queue=progress_queue,
+                task_id=task_id,
+                test_index=test_index
+            )
             
             text_output = ""
             if hasattr(response, "output"):

@@ -9,6 +9,7 @@ STATUS_ICON = {
     "RUNNING": "🟡",
     "COMPLETED": "🟢",
     "ERROR": "🔴",
+    "WARNING": "🟠",
 }
 
 def render_table(task_states):
@@ -22,8 +23,8 @@ def render_table(task_states):
     # Sort by status (Running first), then task ID
     def sort_key(item):
         key, state = item
-        status_order = {"RUNNING": 0, "ERROR": 1, "COMPLETED": 2}
-        return (status_order.get(state.get("status", "RUNNING"), 3), key)
+        status_order = {"RUNNING": 0, "WARNING": 1, "ERROR": 2, "COMPLETED": 3}
+        return (status_order.get(state.get("status", "RUNNING"), 4), key)
 
     for key, state in sorted(task_states.items(), key=sort_key):
         task_str = f"{state['task_id']}:{state['test_index']}"
@@ -64,6 +65,11 @@ def update_task_states(task_states, msg):
     state = task_states[key]
     state.update(msg)
     
+    # Handle WARNING specifically to persist status until next valid update
+    if msg.get("event") == "WARNING":
+        state["status"] = "WARNING"
+        state["step"] = msg.get("step") # Contains the warning message
+
     if msg.get("event") == "START" and "start_time" not in state:
         state["start_time"] = msg["timestamp"]
     

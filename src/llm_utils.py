@@ -11,7 +11,10 @@ logger = get_logger("llm_utils")
 
 def run_with_retry(
     func: Callable[[], Any],
-    max_retries: int = 3
+    max_retries: int = 3,
+    progress_queue=None,
+    task_id: str = None,
+    test_index: int = None
 ) -> Any:
     """
     Generic retry loop helper using RetryableProviderError.
@@ -35,11 +38,23 @@ def run_with_retry(
             else:
                 sleep_time = retry_delays[-1]
 
+            msg_text = f"Retryable error: {e}. Retrying in {sleep_time}s..."
+            
             if isinstance(e, UnknownProviderError):
                 logger.error(f"!!! UNKNOWN ERROR (after {duration:.2f}s) - RETRYING (Attempt {attempt + 1}/{max_retries}) !!!")
                 logger.error(f"Error details: {e}")
             else:
                 logger.warning(f"Retryable error (after {duration:.2f}s): {e}. Retrying in {sleep_time}s (Attempt {attempt + 1}/{max_retries})...")
+            
+            if progress_queue and task_id:
+                progress_queue.put({
+                    "task_id": task_id,
+                    "test_index": test_index,
+                    "status": "RUNNING",
+                    "step": msg_text, # Temporarily overwrite step with warning
+                    "event": "WARNING",
+                    "timestamp": time.time(),
+                })
             
             time.sleep(sleep_time)
             

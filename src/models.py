@@ -92,6 +92,9 @@ def call_model(
     image_path: str = None,
     return_strategy: bool = False,
     verbose: bool = False,
+    progress_queue=None,
+    task_id: str = None,
+    test_index: int = None,
 ) -> ModelResponse:
     config = parse_model_arg(model_arg)
 
@@ -103,6 +106,9 @@ def call_model(
             image_path=image_path,
             return_strategy=return_strategy,
             verbose=verbose,
+            progress_queue=progress_queue,
+            task_id=task_id,
+            test_index=test_index,
         )
     elif config.provider == "anthropic":
         if not anthropic_client:
@@ -114,6 +120,9 @@ def call_model(
             image_path=image_path,
             return_strategy=return_strategy,
             verbose=verbose,
+            progress_queue=progress_queue,
+            task_id=task_id,
+            test_index=test_index,
         )
     elif config.provider == "google":
         if not google_keys:
@@ -125,6 +134,9 @@ def call_model(
             image_path=image_path,
             return_strategy=return_strategy,
             verbose=verbose,
+            progress_queue=progress_queue,
+            task_id=task_id,
+            test_index=test_index,
         )
 
     raise ValueError(f"Unknown provider {config.provider}")
