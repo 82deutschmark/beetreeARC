@@ -3,15 +3,8 @@ import json
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-from src.models import call_model
-from src.audit_prompts import (
-    PROMPT_LOGIC_SYSTEM_ROLE,
-    PROMPT_LOGIC_INSTRUCTIONS,
-    PROMPT_CONSISTENCY_SYSTEM_ROLE,
-    PROMPT_CONSISTENCY_TASK_CONTEXT,
-    PROMPT_CONSISTENCY_INSTRUCTIONS_FORMAT,
-    PROMPT_CONSISTENCY_OUTPUT_FORMAT
-)
+from src.audit_prompts import build_logic_prompt, build_consistency_prompt
+from src.judges import run_judge
 
 def find_task_path(task_id: str) -> Path:
     if task_id.endswith(".json"):
@@ -130,28 +123,6 @@ def pick_solution(candidates_object):
             
     return top_groups, is_solved_flag, {}
 
-def grid_to_string(grid):
-    """Formats grid for Prompt Logic (visual style)."""
-    if not grid:
-        return "(Empty Grid)"
-    
-    rows = len(grid)
-    cols = len(grid[0]) if rows > 0 else 0
-    
-    lines = [f"Size: {rows}x{cols}"]
-    for row in grid:
-        lines.append("".join(str(c) for c in row))
-    return "\n".join(lines)
-
-def grid_to_csv_rows(grid):
-    """Formats grid for Prompt Consistency (comma-separated rows)."""
-    if not grid:
-        return ""
-    lines = []
-    for row in grid:
-        lines.append("      " + ",".join(map(str, row)))
-    return "\n".join(lines)
-
 def pick_solution_v2(candidates_object, reasoning_store, task, test_index, openai_client, anthropic_client, google_keys, judge_model="gemini-3-high"):
     """
     Advanced solution picker using TWO LLM Judges (Logic & Consistency).
@@ -196,94 +167,8 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
                 cand["reasoning"][model_id] = reasoning_store[model_id]
 
     # 3. Build Prompts
-    # Logic Prompt
-    logic_parts = []
-    logic_parts.append(PROMPT_LOGIC_SYSTEM_ROLE)
-    logic_parts.append("\n<INPUT_DATA>")
-    
-    logic_parts.append("1. {SOLVED_EXAMPLES}:")
-    for i, example in enumerate(train_examples):
-        logic_parts.append(f"<EXAMPLE_{i+1}>")
-        logic_parts.append("<INPUT>")
-        logic_parts.append(grid_to_string(example.input))
-        logic_parts.append("</INPUT>")
-        logic_parts.append("<OUTPUT>")
-        logic_parts.append(grid_to_string(example.output))
-        logic_parts.append("</OUTPUT>")
-        logic_parts.append(f"</EXAMPLE_{i+1}>")
-    
-    logic_parts.append("\n2. {TEST_INPUT}:")
-    if test_input:
-        logic_parts.append(grid_to_string(test_input))
-    else:
-        logic_parts.append("(No Test Input)")
-
-    logic_parts.append("\n3. {CANDIDATES}:")
-    for cand in candidates_list:
-        c_id = cand['id']
-        logic_parts.append(f"<CANDIDATE {c_id}>")
-        logic_parts.append("<PROPOSED_SOLUTION>")
-        logic_parts.append(grid_to_string(cand['grid']))
-        logic_parts.append("</PROPOSED_SOLUTION>")
-        for j, model_id in enumerate(cand['models']): # Removed [:3] slice
-            alias = chr(65 + j)
-            logic_parts.append(f'<REASONING_MODEL_{alias} model_id="{model_id}">')
-            reasoning = cand['reasoning'].get(model_id, "(Reasoning not found)")
-            logic_parts.append(reasoning)
-            logic_parts.append(f"</REASONING_MODEL_{alias}>")
-        logic_parts.append(f"</CANDIDATE {c_id}>")
-
-    logic_parts.append("</INPUT_DATA>\n")
-    logic_parts.append(PROMPT_LOGIC_INSTRUCTIONS)
-    full_prompt_logic = "\n".join(logic_parts)
-
-    # Consistency Prompt
-    cons_parts = []
-    cons_parts.append(PROMPT_CONSISTENCY_SYSTEM_ROLE)
-    cons_parts.append(PROMPT_CONSISTENCY_TASK_CONTEXT)
-    cons_parts.append("\n<PROBLEM>")
-    
-    for i, ex in enumerate(train_examples):
-        cons_parts.append(f'  <TRAIN_EXAMPLE index="{i+1}">')
-        cons_parts.append("    <INPUT_GRID>")
-        cons_parts.append(grid_to_csv_rows(ex.input))
-        cons_parts.append("    </INPUT_GRID>")
-        cons_parts.append("    <OUTPUT_GRID>")
-        cons_parts.append(grid_to_csv_rows(ex.output))
-        cons_parts.append("    </OUTPUT_GRID>")
-        cons_parts.append("  </TRAIN_EXAMPLE>")
-        
-    if test_input:
-        cons_parts.append("  <TEST_INPUT>")
-        cons_parts.append("    <INPUT_GRID>")
-        cons_parts.append(grid_to_csv_rows(test_input))
-        cons_parts.append("    </INPUT_GRID>")
-        cons_parts.append("  </TEST_INPUT>")
-        
-    cons_parts.append("</PROBLEM>\n")
-    
-    cons_parts.append("<CANDIDATES>")
-    for cand in candidates_list:
-        c_id = cand['id']
-        cons_parts.append(f'  <CANDIDATE id="{c_id}">')
-        for j, model_id in enumerate(cand['models']): # Removed [:3] slice
-            alias = chr(65 + j)
-            cons_parts.append(f'    <ANSWER id="{alias}" model_id="{model_id}">') # Replicated ANSWER tag structure
-            cons_parts.append(f'      <EXPLANATION>')
-            reasoning = cand['reasoning'].get(model_id, "(Reasoning not found)")
-            cons_parts.append(reasoning)
-            cons_parts.append(f'      </EXPLANATION>')
-            cons_parts.append(f'      <OUTPUT_GRID>')
-            cons_parts.append(grid_to_csv_rows(cand['grid']))
-            cons_parts.append(f'      </OUTPUT_GRID>')
-            cons_parts.append(f'    </ANSWER>')
-        cons_parts.append(f'  </CANDIDATE>')
-    cons_parts.append("</CANDIDATES>\n")
-    
-    cons_parts.append(PROMPT_CONSISTENCY_INSTRUCTIONS_FORMAT)
-    cons_parts.append(PROMPT_CONSISTENCY_OUTPUT_FORMAT)
-    full_prompt_cons = "\n".join(cons_parts)
-
+    full_prompt_logic = build_logic_prompt(train_examples, test_input, candidates_list)
+    full_prompt_cons = build_consistency_prompt(train_examples, test_input, candidates_list)
 
     # 4. Run Judges
     scores = {c['id']: 0.0 for c in candidates_list}
@@ -292,25 +177,9 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
     logic_data = { "prompt": full_prompt_logic, "response": None, "parsed": None }
     cons_data = { "prompt": full_prompt_cons, "response": None, "parsed": None }
 
-    def run_judge(judge_name, prompt, data_holder):
-        print(f"\n[pick_solution_v2] Running {judge_name} Judge ({judge_model})...")
-        try:
-            response_obj = call_model(openai_client, anthropic_client, google_keys, prompt, judge_model)
-            data_holder["response"] = response_obj.text
-            
-            json_match = re.search(r"\{.*\}", response_obj.text, re.DOTALL)
-            if json_match:
-                parsed_json = json.loads(json_match.group(0))
-                data_holder["parsed"] = parsed_json
-                return parsed_json
-        except Exception as e:
-            print(f"[pick_solution_v2] {judge_name} Judge Error: {e}")
-            data_holder["error"] = str(e)
-        return None
-
     with ThreadPoolExecutor(max_workers=2) as executor:
-        future_logic = executor.submit(run_judge, "Logic", full_prompt_logic, logic_data)
-        future_cons = executor.submit(run_judge, "Consistency", full_prompt_cons, cons_data)
+        future_logic = executor.submit(run_judge, "Logic", full_prompt_logic, judge_model, openai_client, anthropic_client, google_keys, logic_data)
+        future_cons = executor.submit(run_judge, "Consistency", full_prompt_cons, judge_model, openai_client, anthropic_client, google_keys, cons_data)
         
         logic_res = future_logic.result()
         cons_res = future_cons.result()
@@ -400,18 +269,7 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
         correctness = group.get("is_correct")
         role = "Auditor"
         if i == 0:
-            # Re-derive the label logic for consistency in final output
-            # (In a real refactor, we'd pass this label down, but this is quick and safe)
-            # We know attempt_1_candidate corresponds to top_groups[0]
-            role = "Consensus (Vote)"
-            # Check for tie again based on the original candidates_list logic
-            # Since we don't have the full sorted list here easily without re-sorting,
-            # we can rely on the fact that if we are here, we are printing the result.
-            # However, for perfect accuracy, let's just use a generic "Consensus" label here 
-            # OR typically we assume the user saw the log above.
-            # But you asked to rename it. 
-            # Let's pass the label from above.
-            role = label # using the 'label' variable defined in the previous block scope
+            role = label
 
         print(f"Attempt {i+1} ({role}) Correctness: {correctness}")
         

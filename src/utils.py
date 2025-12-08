@@ -28,7 +28,7 @@ def parse_grid_from_text(text: str) -> Grid:
         stripped = line.strip()
         
         # Hard Separator Detection
-        if stripped.startswith("```"): 
+        if stripped.startswith("```"):
             candidate_rows.append(None)
             hard_separators.append(i)
             continue
@@ -57,7 +57,7 @@ def parse_grid_from_text(text: str) -> Grid:
     current_block_start_index = -1
     last_row_index = -1
     
-    MAX_GAP = 3 # Allow a small gap of text/newlines within a grid (e.g. noise)
+    MAX_GAP = 3 # Allow a small gap of text/newlines within a grid (e.g. noise) 
     
     for i, row in enumerate(candidate_rows):
         if row is not None:
@@ -147,3 +147,25 @@ def verify_prediction(predicted: Grid, expected: Optional[Grid]) -> Optional[boo
     if expected is None:
         return None
     return predicted == expected
+
+def grid_to_string(grid: Optional[Grid]) -> str:
+    """Formats grid for Prompt Logic (visual style)."""
+    if not grid:
+        return "(Empty Grid)"
+    
+    rows = len(grid)
+    cols = len(grid[0]) if rows > 0 else 0
+    
+    lines = [f"Size: {rows}x{cols}"]
+    for row in grid:
+        lines.append("".join(str(c) for c in row))
+    return "\n".join(lines)
+
+def grid_to_csv_rows(grid: Optional[Grid], padding: str = "      ") -> str:
+    """Formats grid for Prompt Consistency (comma-separated rows with padding)."""
+    if not grid:
+        return ""
+    lines = []
+    for row in grid:
+        lines.append(padding + ",".join(map(str, row)))
+    return "\n".join(lines)
