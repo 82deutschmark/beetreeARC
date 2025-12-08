@@ -22,7 +22,10 @@ def find_task_path(task_id: str) -> Path:
     candidate = Path("data/arc-agi-2-evaluation") / f"{task_id}.json"
     if candidate.exists():
         return candidate
-    raise FileNotFoundError(f"Task file for '{task_id}' not found in data/arc-agi-2-evaluation/.")
+    candidate_training = Path("data/arc-agi-2-training") / f"{task_id}.json"
+    if candidate_training.exists():
+        return candidate_training
+    raise FileNotFoundError(f"Task file for '{task_id}' not found in data/arc-agi-2-evaluation/ or data/arc-agi-2-training/.")
 
 def is_solved(candidates_object) -> bool:
     if not candidates_object:
