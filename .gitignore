@@ -4,3 +4,5 @@ logs_backup/
 run_2025_*/
 config/api_keys_ff.env
 config/api_keys_personal.env
+.venv/
+run_insecure.sh
