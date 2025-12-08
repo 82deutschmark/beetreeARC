@@ -6,7 +6,7 @@ from openai import OpenAI
 from anthropic import Anthropic
 import certifi
 
-from src.config import get_api_keys
+from src.config import get_api_keys, get_http_client
 from src.tasks import load_task, build_prompt, build_objects_extraction_prompt, build_objects_transformation_prompt
 from src.run_utils import find_task_path
 from src.parallel import run_single_model
@@ -30,11 +30,10 @@ def main():
     
     os.environ["SSL_CERT_FILE"] = certifi.where()
     # Configure http client to match run.py settings
-    http_client = httpx.Client(
+    http_client = get_http_client(
         timeout=3600.0, 
-        transport=httpx.HTTPTransport(retries=3, verify=False), 
-        limits=httpx.Limits(keepalive_expiry=3600), 
-        verify=False
+        transport=httpx.HTTPTransport(retries=3), 
+        limits=httpx.Limits(keepalive_expiry=3600)
     )
     
     anthropic_client = None

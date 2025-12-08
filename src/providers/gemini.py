@@ -1,13 +1,16 @@
 import sys
+import os
 import warnings
 import random
 from typing import Optional
 import PIL.Image
+import httpx
 
 from google import genai
 from google.genai import types
 from google.api_core import exceptions as google_exceptions
 
+from src.config import get_api_keys, get_http_client
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
 from src.logging import get_logger
@@ -36,8 +39,15 @@ def call_gemini(
     if verbose:
         logger.info(f"Using Gemini Key index {key_index}")
 
-    # Instantiate a local client for this call (thread-safe)
-    client = genai.Client(api_key=selected_key)
+    # Instantiate a local client for this call (thread-safe) using shared configuration
+    http_client = get_http_client(
+        timeout=3600.0,
+        transport=httpx.HTTPTransport(retries=3),
+        limits=httpx.Limits(keepalive_expiry=3600)
+    )
+    
+    # Pass the custom client to the Google GenAI SDK
+    client = genai.Client(api_key=selected_key, http_options={'httpx_client': http_client})
 
     # Use thinking_level with string literals "LOW" or "HIGH" (case insensitive usually, but standard is upper/lower matching the enum)
     # Typically the SDK accepts "low" / "high" strings for this field if typed as ThinkingLevel

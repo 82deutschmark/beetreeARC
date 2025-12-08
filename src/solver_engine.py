@@ -11,7 +11,7 @@ from google import genai
 
 
 # Import from existing project modules
-from src.config import get_api_keys
+from src.config import get_api_keys, get_http_client
 from src.tasks import load_task, build_prompt, build_objects_extraction_prompt, build_objects_transformation_prompt
 from src.image_generation import generate_and_save_image
 from src.hint_generation import generate_hint
@@ -107,7 +107,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
                 sys.exit(1)
 
         openai_key, claude_key, google_keys = get_api_keys()
-        http_client = httpx.Client(timeout=3600.0)
+        http_client = get_http_client(timeout=3600.0)
         openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
         anthropic_client = Anthropic(api_key=claude_key, http_client=http_client) if claude_key else None
         # google_client instantiation removed as we now pass keys directly

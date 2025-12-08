@@ -10,7 +10,7 @@ import argparse
 import certifi
 os.environ["SSL_CERT_FILE"] = certifi.where()
 
-from src.config import get_api_keys
+from src.config import get_api_keys, get_http_client
 from src.tasks import load_task
 from src.models import call_model
 from src.models import parse_model_arg
@@ -37,11 +37,10 @@ def get_hints(task_path: Path, test_index: int, model_arg: str, verbose: bool = 
     logger = get_logger("get_hints")
     openai_key, claude_key, google_keys = get_api_keys()
 
-    http_client = httpx.Client(
+    http_client = get_http_client(
         timeout=3600.0,
-        transport=httpx.HTTPTransport(retries=3, verify=False),
-        limits=httpx.Limits(keepalive_expiry=3600),
-        verify=False
+        transport=httpx.HTTPTransport(retries=3),
+        limits=httpx.Limits(keepalive_expiry=3600)
     )
     
     openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None

@@ -8,6 +8,7 @@ from openai import OpenAI
 from anthropic import Anthropic
 from google import genai
 
+from src.config import get_http_client
 from src.models import (
     call_model,
     parse_model_arg,
@@ -38,11 +39,10 @@ def solve_task(
 ) -> List[TaskResult]:
     # Create a thread-local HTTP client with insecure SSL and long timeouts
     # to prevent connection errors and timeouts in threaded environments.
-    http_client = httpx.Client(
+    http_client = get_http_client(
         timeout=3600.0,
-        transport=httpx.HTTPTransport(retries=3, verify=False),
-        limits=httpx.Limits(keepalive_expiry=3600),
-        verify=False
+        transport=httpx.HTTPTransport(retries=3),
+        limits=httpx.Limits(keepalive_expiry=3600)
     )
     
     openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None

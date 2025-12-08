@@ -12,7 +12,7 @@ import certifi
 
 
 # Import from existing project modules
-from src.config import get_api_keys
+from src.config import get_api_keys, get_http_client
 from src.tasks import load_task, build_prompt, build_objects_extraction_prompt
 from src.image_generation import generate_and_save_image
 from src.hint_generation import generate_hint
@@ -51,7 +51,7 @@ def run_default_mode(args, answer_path: Path = None):
         print("Warning: Google API keys not found. Gemini models will fail.", file=sys.stderr)
 
     os.environ["SSL_CERT_FILE"] = certifi.where()
-    http_client = httpx.Client(timeout=3600.0, transport=httpx.HTTPTransport(retries=3, verify=False), limits=httpx.Limits(keepalive_expiry=3600), verify=False)
+    http_client = get_http_client(timeout=3600.0, transport=httpx.HTTPTransport(retries=3), limits=httpx.Limits(keepalive_expiry=3600))
     anthropic_client = Anthropic(api_key=claude_key, http_client=http_client)
     openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
     # google_client removed

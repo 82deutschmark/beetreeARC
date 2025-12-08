@@ -1,5 +1,6 @@
 import argparse
 import os
+import httpx
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +12,14 @@ PROVIDER_RATE_LIMITS = {
     "anthropic": {"rate": 15, "period": 60},
     "google": {"rate": 15, "period": 60}
 }
+
+def get_http_client(**kwargs) -> httpx.Client:
+    """Returns a shared httpx client, potentially with insecure SSL if configured."""
+    insecure = os.getenv("ARC_AGI_INSECURE_SSL", "").lower() == "true"
+    if insecure:
+        print("WARNING: SSL verification disabled (ARC_AGI_INSECURE_SSL=true)")
+        kwargs["verify"] = False
+    return httpx.Client(**kwargs)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Send ARC-AGI tasks to OpenAI.")
