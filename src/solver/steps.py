@@ -5,7 +5,7 @@ from src.tasks import build_prompt
 from src.image_generation import generate_and_save_image
 from src.hint_generation import generate_hint
 from src.parallel import run_models_in_parallel
-from src.run_utils import is_solved
+from src.selection import is_solved
 from src.solver.pipelines import run_objects_pipeline_variant
 
 def run_step_1(state, models):

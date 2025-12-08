@@ -5,7 +5,8 @@ from anthropic import Anthropic
 
 from src.config import get_api_keys, get_http_client
 from src.tasks import load_task
-from src.run_utils import find_task_path, pick_solution_v2, pick_solution
+from src.run_utils import find_task_path
+from src.selection import pick_solution_v2, pick_solution
 from src.reporting import ProgressReporter, print_solver_summary
 from src.logging import setup_logging, write_step_log, PrefixedStdout
 
