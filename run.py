@@ -65,6 +65,11 @@ def main():
     
     warnings.filterwarnings("ignore", message=r"Pydantic serializer warnings:", category=UserWarning)
 
+    # Ensure logs directory exists
+    logs_dir = Path("logs")
+    if not logs_dir.exists():
+        logs_dir.mkdir(parents=True, exist_ok=True)
+
     answers_dir = Path(args.answers_directory) if args.answers_directory else None
     if answers_dir and not answers_dir.exists():
          print(f"Error: Answers directory '{answers_dir}' does not exist.", file=sys.stderr)
