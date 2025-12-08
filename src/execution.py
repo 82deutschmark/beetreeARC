@@ -44,7 +44,8 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
                     objects_only=args.objects_only,
                     force_step_5=args.force_step_5,
                     force_step_2=args.force_step_2,
-                    judge_model=args.judge_model
+                    judge_model=args.judge_model,
+                    old_pick_solution=args.old_pick_solution
                 )
             else:
                 # default mode doesn't support progress_queue yet, so it will just run silently if quiet=True
@@ -70,7 +71,8 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
             sys.stderr = old_stderr
     else:
         # Standard verbose mode
-        prefix = f"{task_id}:{test_index} "
+        # Pad to 13 chars (8 for task ID + 1 for colon + 1 for test index + extra buffer)
+        prefix = f"{task_id}:{test_index} ".ljust(13)
         with PrefixedStdout(prefix):
             try:
                 if args.solver or args.solver_testing:
@@ -85,7 +87,8 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
                         objects_only=args.objects_only,
                         force_step_5=args.force_step_5,
                         force_step_2=args.force_step_2,
-                        judge_model=args.judge_model
+                        judge_model=args.judge_model,
+                        old_pick_solution=args.old_pick_solution
                     )
                 else:
                     predictions = run_default_mode(args, answer_path=answer_path)

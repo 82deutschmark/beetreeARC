@@ -149,6 +149,5 @@ class ProgressReporter:
             "timestamp": time.time(),
         })
 
-def print_solver_summary(duration: float, total_cost: float) -> None:
-    print(f"\nTotal Execution Time: {duration:.2f}s")
-    print(f"Total Cost: ${total_cost:.4f}")
+def print_solver_summary(duration: float, total_cost: float, outcome: str) -> None:
+    print(f"{outcome} ({duration:.2f}s, ${total_cost:.4f})")

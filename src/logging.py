@@ -6,16 +6,16 @@ import traceback
 import fcntl
 from pathlib import Path
 
-def setup_logging(verbose: bool = False) -> logging.Logger:
+def setup_logging(verbose: int = 0) -> logging.Logger:
     """
     Configures the root logger.
     
     - INFO level goes to stdout (standard application output).
     - ERROR/WARNING goes to stderr.
-    - DEBUG level goes to stderr if verbose is True.
+    - DEBUG level goes to stderr if verbose >= 2.
     """
     logger = logging.getLogger("arc_agi")
-    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+    logger.setLevel(logging.DEBUG if verbose >= 2 else logging.INFO)
     
     # Clear existing handlers to avoid duplicates
     if logger.handlers:
@@ -33,7 +33,7 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
     # But standard StreamHandler(sys.stderr) takes everything >= level.
     
     # If verbose, we want detailed logs to stderr
-    if verbose:
+    if verbose >= 2:
         debug_handler = logging.StreamHandler(sys.stderr)
         debug_handler.setLevel(logging.DEBUG)
         debug_formatter = logging.Formatter("[%(levelname)s] %(message)s")

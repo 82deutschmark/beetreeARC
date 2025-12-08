@@ -5,12 +5,12 @@ from anthropic import Anthropic
 
 from src.config import get_api_keys, get_http_client
 from src.tasks import load_task
-from src.run_utils import find_task_path, pick_solution_v2
+from src.run_utils import find_task_path, pick_solution_v2, pick_solution
 from src.reporting import ProgressReporter, print_solver_summary
-from src.logging import setup_logging, write_step_log
+from src.logging import setup_logging, write_step_log, PrefixedStdout
 
 class SolverState:
-    def __init__(self, task_id: str, test_index: int, verbose: bool, is_testing: bool, run_timestamp: str, task_path: Path = None, progress_queue=None, answer_path: Path = None, judge_model: str = "gemini-3-high"):
+    def __init__(self, task_id: str, test_index: int, verbose: int, is_testing: bool, run_timestamp: str, task_path: Path = None, progress_queue=None, answer_path: Path = None, judge_model: str = "gemini-3-high", old_pick_solution: bool = False):
         self.task_id = task_id
         self.test_index = test_index
         self.verbose = verbose
@@ -19,6 +19,7 @@ class SolverState:
         self.progress_queue = progress_queue
         self.answer_path = answer_path
         self.judge_model = judge_model
+        self.old_pick_solution = old_pick_solution
         
         self.reporter = ProgressReporter(progress_queue, task_id, test_index)
         setup_logging(verbose)
@@ -79,30 +80,36 @@ class SolverState:
                     self.candidates_object[grid_tuple]["models"].append(res["run_id"])
         
         new_solutions = len(self.candidates_object) - initial_solutions
-        print(f"Found {new_solutions} new unique solutions.")
+        if self.verbose >= 1:
+            print(f"Found {new_solutions} new unique solutions.")
 
     def log_step(self, step_name: str, data: dict):
-        write_step_log(step_name, data, self.run_timestamp, self.task_id, self.test_index, self.verbose)
+        write_step_log(step_name, data, self.run_timestamp, self.task_id, self.test_index, self.verbose >= 2)
 
-    def print_summary(self):
+    def print_summary(self, outcome: str):
         duration = time.time() - self.start_time
-        print_solver_summary(duration, self.total_cost)
+        print_solver_summary(duration, self.total_cost, outcome)
 
     def finalize(self, step_log_name="step_finish"):
         # Check if we have ground truth
         has_ground_truth = self.test_example.output is not None
         
-        picked_solutions, result, selection_metadata = pick_solution_v2(
-            self.candidates_object, 
-            self.reasoning_store, 
-            self.task, 
-            self.test_index,
-            self.openai_client,
-            self.anthropic_client,
-            self.google_keys,
-            self.judge_model
-        )
-        
+        if self.old_pick_solution:
+            if self.verbose >= 1:
+                print("\n[finalize] Using old pick_solution logic.")
+            picked_solutions, result, selection_metadata = pick_solution(self.candidates_object, self.verbose)
+        else:
+            picked_solutions, result, selection_metadata = pick_solution_v2(
+                self.candidates_object, 
+                self.reasoning_store, 
+                self.task, 
+                self.test_index,
+                            self.openai_client,
+                            self.anthropic_client,
+                            self.google_keys,
+                            self.judge_model,
+                            self.verbose
+                        )        
         if not has_ground_truth:
             outcome = "SUBMITTED"
         else:
@@ -116,7 +123,8 @@ class SolverState:
             "result": outcome
         }
         self.log_step(step_log_name, finish_log)
-        self.print_summary()
+        with PrefixedStdout("(step finish): ".ljust(16)):
+            self.print_summary(outcome)
         self.close()
         self.reporter.emit("COMPLETED", "Finished", outcome=outcome, event="FINISH", predictions=picked_solutions)
         return picked_solutions

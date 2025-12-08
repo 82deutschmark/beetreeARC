@@ -4,5 +4,13 @@ logs_backup/
 run_2025_*/
 config/api_keys_ff.env
 config/api_keys_personal.env
+config/api_keys.env
 .venv/
 run_insecure.sh
+logs/
+logs_backup_2/
+src/__pycache__/
+src/providers/__pycache__/
+src/solver/__pycache__/
+tests/__pycache__/
+.DS_Store

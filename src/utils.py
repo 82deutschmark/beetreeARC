@@ -43,6 +43,11 @@ def parse_grid_from_text(text: str) -> Grid:
         if re.match(r'^Row\s+\d+:?$', stripped, re.IGNORECASE):
             candidate_rows.append(None)
             continue
+
+        # Ignore markdown list items (bullet points) as they are usually descriptions, not raw data
+        if stripped.startswith(("-", "*", "+")):
+            candidate_rows.append(None)
+            continue
             
         row = None
         # CSV parsing
@@ -90,7 +95,7 @@ def parse_grid_from_text(text: str) -> Grid:
     current_block_start_index = -1
     last_row_index = -1
     
-    MAX_GAP = 3 # Allow a small gap of text/newlines within a grid (e.g. noise) 
+    MAX_GAP = 2 # Allow a small gap of text/newlines within a grid (e.g. noise) 
     
     for i, row in enumerate(candidate_rows):
         if row is not None:
@@ -110,7 +115,10 @@ def parse_grid_from_text(text: str) -> Grid:
                 gap_size = i - last_row_index - 1
                 
                 # 3. Check Width Compatibility
-                width_match = len(row) == len(current_block[0])
+                # Allow significant variation (up to 5 columns) to handle model typos (extra commas, ragged rows).
+                # We rely on gaps/separators to distinguish distinct grids.
+                width_diff = abs(len(row) - len(current_block[0]))
+                width_match = width_diff <= 5
                 
                 if has_hard_sep or gap_size > MAX_GAP or not width_match:
                     # Check for Exact Duplication before finalizing

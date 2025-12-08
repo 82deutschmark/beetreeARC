@@ -2,7 +2,8 @@ from src.tasks import build_prompt, build_objects_extraction_prompt, build_objec
 from src.parallel import run_single_model, run_models_in_parallel, extract_tag_content
 
 def run_objects_pipeline_variant(state, generator_model, variant_name, solver_models):
-    print(f"Running Objects Pipeline ({variant_name}) with generator {generator_model}...")
+    if state.verbose >= 1:
+        print(f"Running Objects Pipeline ({variant_name}) with generator {generator_model}...")
     pipeline_log = {}
     
     # Phase A: Extraction

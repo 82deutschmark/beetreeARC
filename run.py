@@ -1,6 +1,7 @@
 import argparse
 import sys
 import warnings
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -18,6 +19,9 @@ except ImportError:
     RICH_AVAILABLE = False
 
 def main():
+    if os.getenv("ARC_AGI_INSECURE_SSL", "").lower() == "true":
+        print("WARNING: SSL verification disabled (ARC_AGI_INSECURE_SSL=true)")
+        
     run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     parser = argparse.ArgumentParser(description="Run ARC task test cases with multiple models in parallel.")
     
@@ -34,7 +38,7 @@ def main():
     parser.add_argument("--objects-only", action="store_true", help="Run only the Objects Pipeline sub-strategy in Step 5.")
     parser.add_argument("--force-step-5", action="store_true", help="Force execution of Step 5 even if a solution is found in earlier steps.")
     parser.add_argument("--force-step-2", action="store_true", help="Force the pipeline to stop after Step 2 (First Check), proceeding to Step Finish regardless of outcome.")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging.")
+    parser.add_argument("--verbose", type=int, default=0, help="Verbosity level: 0=Quiet (Default), 1=Standard (Old Default), 2=Debug (Old Verbose).")
     parser.add_argument("--models", type=str, help="Comma-separated list of models to run")
     parser.add_argument("--hint", type=str, default=None, help="Optional hint to provide to the model")
     parser.add_argument("--image", action="store_true", help="Generate an image for the task and include it in the prompt.")
@@ -42,7 +46,8 @@ def main():
     parser.add_argument("--generate-hint", action="store_true", help="Generate a hint for the task using a separate model call.")
     parser.add_argument("--generate-hint-model", type=str, default="gpt-5.1-high", help="Model to use for generating hints.")
     parser.add_argument("--judge-model", type=str, default=None, help="Model to use for the auditing judges (Logic & Consistency).")
-    parser.add_argument("--no-dashboard", action="store_true", help="Disable the rich dashboard in batch mode.")
+    parser.add_argument("--with-dashboard", action="store_true", help="Enable the rich dashboard in batch mode.")
+    parser.add_argument("--old-pick-solution", action="store_true", help="Use the legacy pick_solution() logic instead of the multi-judge pick_solution_v2().")
     parser.add_argument("--submissions-directory", type=str, default="submissions/", help="Directory to save submission files (default: submissions/).")
     parser.add_argument("--answers-directory", type=str, help="Optional directory containing answer files (with 'output' for test cases).")
 
@@ -62,6 +67,11 @@ def main():
     # If no specific solver mode is chosen, default to --solver
     if not args.solver and not args.solver_testing:
         args.solver = True
+    
+    if args.solver_testing:
+        print("Solver testing mode activated.")
+    else:
+        print("Solver mode activated.")
     
     warnings.filterwarnings("ignore", message=r"Pydantic serializer warnings:", category=UserWarning)
 
@@ -109,7 +119,7 @@ def main():
         rate_limit_scale = 1.0 / max(1, args.task_workers)
         
         # Determine if we should use the dashboard
-        use_dashboard = RICH_AVAILABLE and sys.stdout.isatty() and not args.no_dashboard and (args.solver or args.solver_testing)
+        use_dashboard = RICH_AVAILABLE and sys.stdout.isatty() and args.with_dashboard and (args.solver or args.solver_testing)
 
         final_results = run_batch_execution(args, tasks_to_run, run_timestamp, rate_limit_scale, use_dashboard, answers_dir)
                         

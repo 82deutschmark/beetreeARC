@@ -6,11 +6,11 @@ from src.solver.state import SolverState
 from src.solver.steps import run_step_1, run_step_3, run_step_5, check_is_solved
 
 # Re-export run_solver_mode for backward compatibility if imported elsewhere
-def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None, progress_queue=None, answer_path: Path = None, step_5_only: bool = False, objects_only: bool = False, force_step_5: bool = False, force_step_2: bool = False, judge_model: str = "gemini-3-high"):
+def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None, progress_queue=None, answer_path: Path = None, step_5_only: bool = False, objects_only: bool = False, force_step_5: bool = False, force_step_2: bool = False, judge_model: str = "gemini-3-high", old_pick_solution: bool = False):
     
     # Initialize State
     try:
-        state = SolverState(task_id, test_index, verbose, is_testing, run_timestamp, task_path, progress_queue, answer_path, judge_model)
+        state = SolverState(task_id, test_index, verbose, is_testing, run_timestamp, task_path, progress_queue, answer_path, judge_model, old_pick_solution=old_pick_solution)
         state.reporter.emit("RUNNING", "Initializing", event="START")
     except Exception as e:
         print(f"Error initializing solver state: {e}", file=sys.stderr)
@@ -18,14 +18,12 @@ def run_solver_mode(task_id: str, test_index: int, verbose: bool, is_testing: bo
 
     try:
         if is_testing:
-            print("Solver testing mode activated.")
             # Models for --solver-testing
             models_step1 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none", "claude-sonnet-4.5-no-thinking", "gpt-5.1-none", "claude-opus-4.5-no-thinking"]
             models_step3 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
             models_step5 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-none"]
             hint_generation_model = "gpt-5.1-none"
         else:
-            print("Solver mode activated.")
             # Models for --solver
             models_step1 = ["claude-opus-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gpt-5.1-high", "gemini-3-high", "gemini-3-high"]
             models_step3 = ["claude-opus-4.5-thinking-60000", "claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gpt-5.1-high", "gemini-3-high", "gemini-3-high"]

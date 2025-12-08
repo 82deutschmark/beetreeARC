@@ -46,7 +46,7 @@ def is_solved(candidates_object) -> bool:
             
     return True
 
-def pick_solution(candidates_object):
+def pick_solution(candidates_object, verbose: int = 0):
     # Model priority mapping (higher number = higher priority)
     MODEL_PRIORITY = {
         "claude-opus-4.5-thinking-60000": 4,
@@ -73,9 +73,10 @@ def pick_solution(candidates_object):
         reverse=True
     )
     
-    print("\n" + "="*40)
-    print("FINAL OUTCOME")
-    print("="*40)
+    if verbose >= 1:
+        print("\n" + "="*40)
+        print("FINAL OUTCOME")
+        print("="*40)
     
     is_solved_flag = False
     unknown_status = False
@@ -90,22 +91,26 @@ def pick_solution(candidates_object):
             is_solved_flag = True
         
     if unknown_status:
-        print("Outcome: SUBMITTED (No Ground Truth)")
+        if verbose >= 1:
+            print("Outcome: SUBMITTED (No Ground Truth)")
     elif is_solved_flag:
-        print("Outcome: SOLVED")
+        if verbose >= 1:
+            print("Outcome: SOLVED")
     else:
-        print("Outcome: FAILED")
+        if verbose >= 1:
+            print("Outcome: FAILED")
 
-    print("\n--- Debug Info ---")
-    if not top_groups:
-        print("No solutions generated.")
-    else:
-        for i, group in enumerate(top_groups):
-            correctness = group.get('is_correct')
-            c_str = "Unknown" if correctness is None else str(correctness)
-            priority = get_group_priority(group)
-            print(f"Group {i+1}: Count={group['count']}, Priority={priority}, Correct={c_str}")
-            print(f"  Models: {', '.join(group['models'])}")
+    if verbose >= 1:
+        print("\n--- Debug Info ---")
+        if not top_groups:
+            print("No solutions generated.")
+        else:
+            for i, group in enumerate(top_groups):
+                correctness = group.get('is_correct')
+                c_str = "Unknown" if correctness is None else str(correctness)
+                priority = get_group_priority(group)
+                print(f"Group {i+1}: Count={group['count']}, Priority={priority}, Correct={c_str}")
+                print(f"  Models: {', '.join(group['models'])}")
 
     # Check for other correct groups
     other_correct = []
@@ -115,7 +120,7 @@ def pick_solution(candidates_object):
         if group.get('is_correct') is True:
             other_correct.append((i + 1, group))
             
-    if other_correct:
+    if other_correct and verbose >= 1:
         print("\n--- Other Correct Groups ---")
         for rank, group in other_correct:
             print(f"Group {rank}: Count={group['count']}, Correct={group['is_correct']}")
@@ -123,14 +128,15 @@ def pick_solution(candidates_object):
             
     return top_groups, is_solved_flag, {}
 
-def pick_solution_v2(candidates_object, reasoning_store, task, test_index, openai_client, anthropic_client, google_keys, judge_model="gemini-3-high"):
+def pick_solution_v2(candidates_object, reasoning_store, task, test_index, openai_client, anthropic_client, google_keys, judge_model="gemini-3-high", verbose: int = 0):
     """
     Advanced solution picker using TWO LLM Judges (Logic & Consistency).
     Replicates methodology from solution_handler.py:
     - Attempt 1: Consensus (Vote Count)
     - Attempt 2: Auditor Choice (Max Score of Logic/Consistency)
     """
-    print("\n[pick_solution_v2] Starting Advanced Solution Picker (Multi-Judge)")
+    if verbose >= 1:
+        print("\n[pick_solution_v2] Starting Advanced Solution Picker (Multi-Judge)")
     
     # 0. Preparation
     train_examples = task.train
@@ -148,7 +154,8 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
             "reasoning": {} 
         })
     
-    print(f"[pick_solution_v2] Total unique candidates found: {len(candidates_list)}")
+    if verbose >= 1:
+        print(f"[pick_solution_v2] Total unique candidates found: {len(candidates_list)}")
 
     # Init Metadata
     selection_metadata = {
@@ -178,8 +185,8 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
     cons_data = { "prompt": full_prompt_cons, "response": None, "parsed": None }
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        future_logic = executor.submit(run_judge, "Logic", full_prompt_logic, judge_model, openai_client, anthropic_client, google_keys, logic_data)
-        future_cons = executor.submit(run_judge, "Consistency", full_prompt_cons, judge_model, openai_client, anthropic_client, google_keys, cons_data)
+        future_logic = executor.submit(run_judge, "Logic", full_prompt_logic, judge_model, openai_client, anthropic_client, google_keys, logic_data, verbose)
+        future_cons = executor.submit(run_judge, "Consistency", full_prompt_cons, judge_model, openai_client, anthropic_client, google_keys, cons_data, verbose)
         
         logic_res = future_logic.result()
         cons_res = future_cons.result()
@@ -210,7 +217,8 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
             is_tie_break = True
             
     label = "Consensus (Tie-Break by Score)" if is_tie_break else "Consensus (Vote)"
-    print(f"[pick_solution_v2] Attempt 1 ({label}): Candidate {attempt_1_candidate['id']} (Votes: {attempt_1_candidate['count']}, Score: {scores[attempt_1_candidate['id']]})")
+    if verbose >= 1:
+        print(f"[pick_solution_v2] Attempt 1 ({label}): Candidate {attempt_1_candidate['id']} (Votes: {attempt_1_candidate['count']}, Score: {scores[attempt_1_candidate['id']]})")
 
     # 5. Determine Attempt 2 (Auditor)
     # Sort candidates by Max Score
@@ -225,15 +233,18 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
             
     final_selection = [attempt_1_candidate]
     if attempt_2_candidate:
-        print(f"[pick_solution_v2] Attempt 2 (Auditor): Candidate {attempt_2_candidate['id']} (Max Score: {scores[attempt_2_candidate['id']]})")
+        if verbose >= 1:
+            print(f"[pick_solution_v2] Attempt 2 (Auditor): Candidate {attempt_2_candidate['id']} (Max Score: {scores[attempt_2_candidate['id']]})")
         final_selection.append(attempt_2_candidate)
     else:
-        print("[pick_solution_v2] Attempt 2 (Auditor): No distinct candidate found. Using Consensus only.")
+        if verbose >= 1:
+            print("[pick_solution_v2] Attempt 2 (Auditor): No distinct candidate found. Using Consensus only.")
     
     # Debug Scoring
-    print("\n[pick_solution_v2] Final Scores:")
-    for cand in candidates_list:
-        print(f"  ID {cand['id']}: Score={scores[cand['id']]}, Votes={cand['count']}")
+    if verbose >= 1:
+        print("\n[pick_solution_v2] Final Scores:")
+        for cand in candidates_list:
+            print(f"  ID {cand['id']}: Score={scores[cand['id']]}, Votes={cand['count']}")
 
     # 6. Populate Metadata
     selection_metadata["judges"]["logic"] = logic_data
@@ -258,9 +269,10 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
         top_groups.append(candidates_object[grid_tuple])
 
     # 8. Final Success Check
-    print("\n" + "="*40)
-    print("FINAL OUTCOME (V2 - Multi-Judge)")
-    print("="*40)
+    if verbose >= 1:
+        print("\n" + "="*40)
+        print("FINAL OUTCOME (V2 - Multi-Judge)")
+        print("="*40)
     
     is_solved_flag = False
     unknown_status = False
@@ -271,7 +283,8 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
         if i == 0:
             role = label
 
-        print(f"Attempt {i+1} ({role}) Correctness: {correctness}")
+        if verbose >= 1:
+            print(f"Attempt {i+1} ({role}) Correctness: {correctness}")
         
         if correctness is None:
             unknown_status = True
@@ -279,10 +292,13 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
             is_solved_flag = True
             
     if unknown_status:
-        print("Outcome: SUBMITTED (No Ground Truth)")
+        if verbose >= 1:
+            print("Outcome: SUBMITTED (No Ground Truth)")
     elif is_solved_flag:
-        print("Outcome: SOLVED")
+        if verbose >= 1:
+            print("Outcome: SOLVED")
     else:
-        print("Outcome: FAILED")
+        if verbose >= 1:
+            print("Outcome: FAILED")
 
     return top_groups, is_solved_flag, selection_metadata
