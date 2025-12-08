@@ -36,14 +36,47 @@ def parse_grid_from_text(text: str) -> Grid:
         if not stripped: 
             candidate_rows.append(None)
             continue
+
+        # Ignore explicit row labels which confuse the parser (e.g. "Row 1:", "Row 10")
+        # if they stand alone on a line.
+        import re
+        if re.match(r'^Row\s+\d+:?$', stripped, re.IGNORECASE):
+            candidate_rows.append(None)
+            continue
             
         row = None
         # CSV parsing
         try:
-            tokens = stripped.split(",")
+            # Pre-clean: remove ` [ ] and spaces to handle conversational formatting
+            clean_line = stripped.replace("`", "").replace("[", "").replace("]", "").strip()
+            tokens = clean_line.split(",")
             # Allow for spaces around numbers just in case
             if len(tokens) > 0 and all(t.strip().isdigit() for t in tokens):
                 row = [int(t.strip()) for t in tokens]
+            else:
+                # Fallback: Parsing lines like "Row 1: 8,8,8..." or "Output: 1,2,3"
+                # 1. Try splitting by colon and taking the last part
+                if ":" in clean_line:
+                    clean_line = clean_line.split(":")[-1].strip()
+                
+                # 2. Fallback: Try to find the first digit and parse from there
+                import re
+                match = re.search(r'\d', clean_line)
+                if match:
+                    sub = clean_line[match.start():]
+                    
+                    # Simple approach: Slice from first digit to last digit
+                    last_digit_idx = -1
+                    for idx, char in enumerate(clean_line):
+                        if char.isdigit():
+                            last_digit_idx = idx
+                    
+                    if last_digit_idx != -1 and last_digit_idx >= match.start():
+                        candidate_sub = clean_line[match.start() : last_digit_idx + 1]
+                        sub_tokens = candidate_sub.split(",")
+                        if len(sub_tokens) > 1 and all(t.strip().isdigit() for t in sub_tokens):
+                             row = [int(t.strip()) for t in sub_tokens]
+
         except ValueError:
             pass
 
@@ -92,49 +125,9 @@ def parse_grid_from_text(text: str) -> Grid:
                     current_block_start_index = i
                     last_row_index = i
                 else:
-                    # We are considering MERGING.
-                    # Check if the new row is starting a repetition of the current block?
-                    # This is hard to know line-by-line.
-                    
-                    # Alternative Strategy:
-                    # If we merge, we might double the grid.
-                    # Let's check if the 'current_block' so far consists of two identical halves?
-                    # No, that's too expensive to check every row.
-                    
-                    # Let's rely on the block splitting logic we just added (Hard Separators).
-                    # But here we have NO hard separator, just a blank line.
-                    # And the content is identical. 
-                    
-                    # Refined Heuristic:
-                    # If the gap is small (>0) AND the new row looks exactly like the START of the current block,
-                    # AND the block is substantial size, it might be a repeat.
-                    # But patterns repeat too!
-                    
-                    # Safest bet for 'Duplicate Block Detection':
-                    # Post-process the blocks list? No, we need to decide whether to merge NOW.
-                    
-                    # Actually, if the user explicitly approved "Duplicate Block Detection", 
-                    # we should probably split if there is ANY gap (gap_size > 0) 
-                    # and allow the post-selection (taking the last block) to handle it.
-                    # But that breaks "gappy" single grids.
-                    
-                    # Let's try this:
-                    # If gap > 0, we tentatively verify if this new segment matches the start of the existing block.
-                    # If row == current_block[0], it is HIGHLY suspicious of being a repeat start.
-                    
-                    is_repeat_start = (gap_size > 0) and (row == current_block[0])
-                    
-                    if is_repeat_start:
-                         # Treat as a split
-                        blocks.append(current_block)
-                        current_block = [row]
-                        current_block_start_index = i
-                        last_row_index = i
-                    else:
-                        # Extend current block
-                        current_block.append(row)
-                        last_row_index = i
-                    
+                    # Extend current block
+                    current_block.append(row)
+                    last_row_index = i                    
     if current_block: blocks.append(current_block)
     
     if not blocks:

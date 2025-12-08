@@ -12,3 +12,4 @@ typing-inspection
 jiter
 pydantic>=2,<3
 
+google-cloud-bigquery-storage>=2.30.0,<3.0.0
