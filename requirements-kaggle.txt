@@ -1,15 +1,23 @@
-# Core model clients
+# --- Core model clients ---
 openai
 anthropic
-google-genai
 
-# Utilities used by your solver
+# Gemini client — requires >=1.52.0 for thinking_level
+google-genai>=1.52.0
+
+# --- Utilities used by the solver ---
 tenacity
 tqdm
+
+# Rich must stay <14 because Kaggle breaks with 14.x
 rich<14
+
 docstring_parser
 typing-inspection
 jiter
+
+# Use pydantic v2 (the solver assumes v2 behavior)
 pydantic>=2,<3
 
+# Needed to satisfy Kaggle's resolver warning from bigframes
 google-cloud-bigquery-storage>=2.30.0,<3.0.0
