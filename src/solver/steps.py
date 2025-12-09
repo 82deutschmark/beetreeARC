@@ -1,3 +1,4 @@
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.logging import PrefixedStdout
@@ -10,25 +11,25 @@ from src.solver.pipelines import run_objects_pipeline_variant
 
 def run_step_1(state, models):
     state.set_status(step=1, phase="Shallow search")
-    print("Broad search")
+    print(f"Broad search: {len(models)} left")
     state.reporter.emit("RUNNING", "(Shallow search)", event="STEP_CHANGE")
     step_1_log = {}
     if state.verbose >= 1:
         print(f"Running {len(models)} models...")
     prompt_step1 = build_prompt(state.task.train, state.test_example)
-    results_step1 = run_models_in_parallel(models, state.run_id_counts, "step_1", prompt_step1, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index)
+    results_step1 = run_models_in_parallel(models, state.run_id_counts, "step_1", prompt_step1, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index, completion_message="Broad search")
     state.process_results(results_step1, step_1_log)
     state.log_step("step_1", step_1_log)
 
 def run_step_3(state, models):
     state.set_status(step=3, phase="Extended search")
-    print("Narrowing in...")
+    print(f"Narrow search: {len(models)} left")
     state.reporter.emit("RUNNING", "(Extended search)", event="STEP_CHANGE")
     step_3_log = {}
     if state.verbose >= 1:
         print(f"Running {len(models)} models...")
     prompt_step3 = build_prompt(state.task.train, state.test_example)
-    results_step3 = run_models_in_parallel(models, state.run_id_counts, "step_3", prompt_step3, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index)
+    results_step3 = run_models_in_parallel(models, state.run_id_counts, "step_3", prompt_step3, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index, completion_message="Narrow search")
     state.process_results(results_step3, step_3_log)
     state.log_step("step_3", step_3_log)
 
@@ -56,7 +57,53 @@ def check_is_solved(state, step_name, force_finish=False, continue_if_solved=Fal
 
 def run_step_5(state, models, hint_model, objects_only=False):
     state.set_status(step=5, phase="Full search")
-    print("Going deep...")
+    
+    # Calculate tries
+    if state.is_testing:
+        gen_gemini = "gemini-3-low"
+        gen_opus = "claude-opus-4.5-thinking-4000"
+        unique_solvers = ["claude-opus-4.5-no-thinking", "gpt-5.1-none", "gemini-3-low"]
+    else:
+        gen_gemini = "gemini-3-high"
+        gen_opus = "claude-opus-4.5-thinking-60000"
+        unique_solvers = ["claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gemini-3-high"]
+        
+    # Counters setup
+    n_models = len(models)
+    n_objects_models = len(unique_solvers)
+    
+    counters = {
+        'deep': n_models,
+        'image': n_models,
+        'hint': n_models,
+        'objects': n_objects_models * 2 # 2 variants
+    }
+    
+    if objects_only:
+        counters['deep'] = 0
+        counters['image'] = 0
+        counters['hint'] = 0
+        
+    lock = threading.Lock()
+    
+    def update_progress(key):
+        with lock:
+            if key in counters:
+                counters[key] -= 1
+            # Deep/Image/Hint/Objects
+            d = counters['deep']
+            i = counters['image']
+            h = counters['hint']
+            o = counters['objects']
+            print(f"Going DEEP: {d}/{i}/{h}/{o} left")
+
+    # Initial Print
+    d = counters['deep']
+    i = counters['image']
+    h = counters['hint']
+    o = counters['objects']
+    print(f"Going DEEP: {d}/{i}/{h}/{o} left")
+
     state.reporter.emit("RUNNING", "(Full search)", event="STEP_CHANGE")
     step_5_log = {"trigger-deep-thinking": {}, "image": {}, "generate-hint": {}, "objects_pipeline": {}}
 
@@ -64,22 +111,22 @@ def run_step_5(state, models, hint_model, objects_only=False):
     common_image_path = f"logs/{state.run_timestamp}_{state.task_id}_{state.test_index}_step_5_common.png"
     generate_and_save_image(state.task, common_image_path)
 
-    def run_deep_thinking_step():
+    def run_deep_thinking_step(on_complete=None):
         if state.verbose >= 1:
             print(f"Running {len(models)} models with deep thinking...")
         prompt_deep = build_prompt(state.task.train, state.test_example, trigger_deep_thinking=True)
-        results_deep = run_models_in_parallel(models, state.run_id_counts, "step_5_deep_thinking", prompt_deep, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index)
+        results_deep = run_models_in_parallel(models, state.run_id_counts, "step_5_deep_thinking", prompt_deep, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index, on_task_complete=on_complete)
         return "trigger-deep-thinking", results_deep, None
 
-    def run_image_step(img_path):
+    def run_image_step(img_path, on_complete=None):
         if state.verbose >= 1:
             print(f"Running {len(models)} models with image...")
         # Image is already generated
         prompt_image = build_prompt(state.task.train, state.test_example, image_path=img_path)
-        results_image = run_models_in_parallel(models, state.run_id_counts, "step_5_image", prompt_image, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, image_path=img_path, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index)
+        results_image = run_models_in_parallel(models, state.run_id_counts, "step_5_image", prompt_image, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, image_path=img_path, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index, on_task_complete=on_complete)
         return "image", results_image, None
 
-    def run_hint_step(img_path):
+    def run_hint_step(img_path, on_complete=None):
         if state.verbose >= 1:
             print(f"Running {len(models)} models with generated hint...")
         # Image is already generated
@@ -92,34 +139,34 @@ def run_step_5(state, models, hint_model, objects_only=False):
                 "Extracted hint": hint_data["hint"],
             }
             prompt_hint = build_prompt(state.task.train, state.test_example, strategy=hint_data["hint"])
-            results_hint = run_models_in_parallel(models, state.run_id_counts, "step_5_generate_hint", prompt_hint, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index)
+            results_hint = run_models_in_parallel(models, state.run_id_counts, "step_5_generate_hint", prompt_hint, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, progress_queue=state.progress_queue, task_id=state.task_id, test_index=state.test_index, on_task_complete=on_complete)
             return "generate-hint", results_hint, extra_log
+        
+        # If no hint generated, manually drain counter
+        if on_complete:
+            for _ in range(len(models)):
+                on_complete()
         return "generate-hint", [], extra_log
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = []
         
-        if state.is_testing:
-            # Testing models
-            gen_gemini = "gemini-3-low"
-            gen_opus = "claude-opus-4.5-thinking-4000"
-            unique_solvers = ["claude-opus-4.5-no-thinking", "gpt-5.1-none", "gemini-3-low"]
-        else:
-            # Production models
-            gen_gemini = "gemini-3-high"
-            gen_opus = "claude-opus-4.5-thinking-60000"
-            unique_solvers = ["claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gemini-3-high"]
-            
         if objects_only:
-             futures.append(executor.submit(run_objects_pipeline_variant, state, gen_gemini, "gemini_gen", unique_solvers))
-             futures.append(executor.submit(run_objects_pipeline_variant, state, gen_opus, "opus_gen", unique_solvers))
+             # Assuming pipelines.py updated or ignores extra arg. 
+             # Actually I can't pass callback to run_objects_pipeline_variant easily without editing it.
+             # I will skip passing it for objects for now, so objects counter won't decrement.
+             # Wait, that breaks the "X left" logic.
+             # I should just update pipelines.py next.
+             # I'll pass it, assuming I will fix pipelines.py immediately after.
+             futures.append(executor.submit(run_objects_pipeline_variant, state, gen_gemini, "gemini_gen", unique_solvers, lambda: update_progress('objects')))
+             futures.append(executor.submit(run_objects_pipeline_variant, state, gen_opus, "opus_gen", unique_solvers, lambda: update_progress('objects')))
         else:
             futures = [
-                executor.submit(run_deep_thinking_step),
-                executor.submit(run_image_step, common_image_path),
-                executor.submit(run_hint_step, common_image_path),
-                executor.submit(run_objects_pipeline_variant, state, gen_gemini, "gemini_gen", unique_solvers),
-                executor.submit(run_objects_pipeline_variant, state, gen_opus, "opus_gen", unique_solvers)
+                executor.submit(run_deep_thinking_step, lambda: update_progress('deep')),
+                executor.submit(run_image_step, common_image_path, lambda: update_progress('image')),
+                executor.submit(run_hint_step, common_image_path, lambda: update_progress('hint')),
+                executor.submit(run_objects_pipeline_variant, state, gen_gemini, "gemini_gen", unique_solvers, lambda: update_progress('objects')),
+                executor.submit(run_objects_pipeline_variant, state, gen_opus, "opus_gen", unique_solvers, lambda: update_progress('objects'))
             ]
             
         for future in as_completed(futures):

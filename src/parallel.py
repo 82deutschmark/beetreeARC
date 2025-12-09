@@ -156,7 +156,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
             
         return {"model": model_name, "run_id": run_id, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": str(e), "input_tokens": input_tokens, "output_tokens": output_tokens, "cached_tokens": cached_tokens}
 
-def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=None, run_timestamp=None, progress_queue=None, task_id=None, test_index=None):
+def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=None, run_timestamp=None, progress_queue=None, task_id=None, test_index=None, completion_message: str = None, on_task_complete=None):
     all_results = []
     with ThreadPoolExecutor(max_workers=10) as executor:
         
@@ -173,8 +173,25 @@ def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test
             for run in run_list
         }
 
+        total_tasks = len(future_to_run_id)
+        completed_count = 0
+
         for future in as_completed(future_to_run_id):
-            res = future.result()
-            if res:
-                all_results.append(res)
+            completed_count += 1
+            run_id = future_to_run_id[future]
+            try:
+                res = future.result()
+                if res:
+                    all_results.append(res)
+                
+                # Handle progress updates
+                if on_task_complete:
+                    on_task_complete()
+                elif completion_message:
+                    remaining = total_tasks - completed_count
+                    print(f"{completion_message}: {remaining} left")
+                    
+            except Exception as e:
+                print(f"Model run {run_id} failed: {e}")
+                
     return all_results
