@@ -92,7 +92,7 @@ Full results here: XXX
 
 I did a run on Dec 1 on the Eval 2 dataset which yielded a 50.3% solved problems (each sub task measured independently). 
 
-Full results here: https://github.com/beetree/ARC-AGI/blob/main/RESULTS.md
+Full results here: https://github.com/beetree/ARC-AGI/blob/main/docs/RESULTS.md
 
 ## Next steps
 
