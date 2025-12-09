@@ -71,9 +71,11 @@ def main():
     
     if args.solver_testing:
         print("Solver testing mode activated.")
+        print(f"Judge model: {args.judge_model}")
         print()
     else:
         print("Solver mode activated.")
+        print(f"Judge model: {args.judge_model}")
         print()
     
     warnings.filterwarnings("ignore", message=r"Pydantic serializer warnings:", category=UserWarning)
