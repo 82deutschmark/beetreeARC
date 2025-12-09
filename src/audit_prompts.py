@@ -1,7 +1,9 @@
 from src.utils import grid_to_string, grid_to_csv_rows
-from src.audit_templates import (
+from src.audit_templates_logic import (
     PROMPT_LOGIC_SYSTEM_ROLE,
-    PROMPT_LOGIC_INSTRUCTIONS,
+    PROMPT_LOGIC_INSTRUCTIONS
+)
+from src.audit_templates_consistency import (
     PROMPT_CONSISTENCY_SYSTEM_ROLE,
     PROMPT_CONSISTENCY_TASK_CONTEXT,
     PROMPT_CONSISTENCY_INSTRUCTIONS_FORMAT,
