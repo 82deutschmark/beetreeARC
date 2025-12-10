@@ -76,11 +76,11 @@ def call_gemini(
         except Exception as e:
             # 1. Known SDK Retryables
             if isinstance(e, (google_exceptions.ResourceExhausted, google_exceptions.ServiceUnavailable, google_exceptions.InternalServerError, google_exceptions.TooManyRequests)):
-                 raise RetryableProviderError(f"Gemini Transient Error (Key #{key_index}): {e}") from e
+                 raise RetryableProviderError(f"Gemini Transient Error (Key #{key_index}, Model: {model}): {e}") from e
             
             # 2. Known SDK Non-Retryables
             if isinstance(e, (google_exceptions.InvalidArgument, google_exceptions.PermissionDenied, google_exceptions.Unauthenticated)):
-                 raise NonRetryableProviderError(f"Gemini Fatal Error (Key #{key_index}): {e}") from e
+                 raise NonRetryableProviderError(f"Gemini Fatal Error (Key #{key_index}, Model: {model}): {e}") from e
 
             # 3. String matching for other errors
             err_str = str(e)
@@ -94,10 +94,10 @@ def call_gemini(
                 or "peer closed connection" in err_str.lower()
                 or "incomplete chunked read" in err_str.lower()
             ):
-                raise RetryableProviderError(f"Network/Protocol Error (Key #{key_index}): {e}") from e
+                raise RetryableProviderError(f"Network/Protocol Error (Key #{key_index}, Model: {model}): {e}") from e
 
             # 4. Loud Retry
-            raise UnknownProviderError(f"Unexpected Gemini Error (Key #{key_index}): {e}") from e
+            raise UnknownProviderError(f"Unexpected Gemini Error (Key #{key_index}, Model: {model}): {e}") from e
 
     def _solve(p: str) -> ModelResponse:
         # Pass raw string to avoid Pydantic warnings; SDK handles wrapping
