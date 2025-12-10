@@ -3,7 +3,7 @@ def pick_solution(candidates_object, verbose: int = 0):
     MODEL_PRIORITY = {
         "claude-opus-4.5-thinking-60000": 4,
         "gemini-3-high": 3,
-        "gpt-5.1-high": 2,
+        "gpt-5.1-medium": 2,
         "claude-sonnet-4.5-thinking-60000": 1
     }
 

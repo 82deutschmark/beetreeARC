@@ -63,7 +63,7 @@ def run_step_5(state, models, hint_model, objects_only=False):
     else:
         gen_gemini = "gemini-3-high"
         gen_opus = "claude-opus-4.5-thinking-60000"
-        unique_solvers = ["claude-opus-4.5-thinking-60000", "gpt-5.1-high", "gemini-3-high"]
+        unique_solvers = ["claude-opus-4.5-thinking-60000", "gpt-5.1-medium", "gemini-3-high"]
         
     # Counters setup
     n_models = len(models)
@@ -144,7 +144,7 @@ def run_step_5(state, models, hint_model, objects_only=False):
                 on_complete()
         return "generate-hint", [], extra_log
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         
         if objects_only:

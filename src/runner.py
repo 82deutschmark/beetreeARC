@@ -31,7 +31,7 @@ def run_app(
     image=False,
     trigger_deep_thinking=False,
     generate_hint=False,
-    generate_hint_model="gpt-5.1-high",
+    generate_hint_model="gpt-5.1-medium",
     judge_model=None,
     old_pick_solution=False,
     submissions_directory="submissions/",
