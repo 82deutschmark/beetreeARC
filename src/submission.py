@@ -5,7 +5,7 @@ from pathlib import Path
 def generate_submission(final_results, submission_dir_path: str, run_timestamp: str):
     submission_dir = Path(submission_dir_path)
     submission_dir.mkdir(parents=True, exist_ok=True)
-    submission_file = submission_dir / f"{run_timestamp}_submission.json"
+    submission_file = submission_dir / "submission.json"
     
     submission_data = {}
     
