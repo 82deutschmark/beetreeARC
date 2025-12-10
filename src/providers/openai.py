@@ -33,11 +33,11 @@ def call_openai_internal(
         except Exception as e:
             # 1. Known SDK Retryables
             if isinstance(e, (openai.RateLimitError, openai.APIConnectionError, openai.InternalServerError)):
-                raise RetryableProviderError(f"OpenAI Transient Error: {e}") from e
+                raise RetryableProviderError(f"OpenAI Transient Error (Model: {model}): {e}") from e
             
             # 2. Known SDK Non-Retryables
             if isinstance(e, (openai.BadRequestError, openai.AuthenticationError, openai.PermissionDeniedError)):
-                raise NonRetryableProviderError(f"OpenAI Fatal Error: {e}") from e
+                raise NonRetryableProviderError(f"OpenAI Fatal Error (Model: {model}): {e}") from e
 
             # 3. String matching for other transient network errors
             err_str = str(e)
@@ -53,10 +53,10 @@ def call_openai_internal(
                 or "peer closed connection" in err_str.lower()
                 or "incomplete chunked read" in err_str.lower()
             ):
-                raise RetryableProviderError(f"Network/Protocol Error: {e}") from e
+                raise RetryableProviderError(f"Network/Protocol Error (Model: {model}): {e}") from e
 
             # 4. True Unknowns -> Loud Retry
-            raise UnknownProviderError(f"Unexpected OpenAI Error: {e}") from e
+            raise UnknownProviderError(f"Unexpected OpenAI Error (Model: {model}): {e}") from e
 
     def _solve(p: str) -> ModelResponse:
         content = [{"type": "input_text", "text": p}]

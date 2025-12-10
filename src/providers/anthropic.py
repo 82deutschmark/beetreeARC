@@ -47,11 +47,11 @@ def call_anthropic(
         except Exception as e:
             # 1. Known SDK Retryables
             if isinstance(e, (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.InternalServerError)):
-                raise RetryableProviderError(f"Anthropic Transient Error: {e}") from e
+                raise RetryableProviderError(f"Anthropic Transient Error (Model: {model}): {e}") from e
             
             # 2. Known SDK Non-Retryables
             if isinstance(e, (anthropic.BadRequestError, anthropic.AuthenticationError, anthropic.PermissionDeniedError)):
-                raise NonRetryableProviderError(f"Anthropic Fatal Error: {e}") from e
+                raise NonRetryableProviderError(f"Anthropic Fatal Error (Model: {model}): {e}") from e
 
             # 3. String matching
             err_str = str(e)
@@ -66,10 +66,10 @@ def call_anthropic(
                 or "peer closed connection" in err_str.lower()
                 or "incomplete chunked read" in err_str.lower()
             ):
-                raise RetryableProviderError(f"Network/Protocol Error: {e}") from e
+                raise RetryableProviderError(f"Network/Protocol Error (Model: {model}): {e}") from e
 
             # 4. Loud Retry
-            raise UnknownProviderError(f"Unexpected Anthropic Error: {e}") from e
+            raise UnknownProviderError(f"Unexpected Anthropic Error (Model: {model}): {e}") from e
 
     def _solve(p: str) -> ModelResponse:
         content = []
