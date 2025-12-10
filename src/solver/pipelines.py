@@ -20,7 +20,12 @@ def run_objects_pipeline_variant(state, generator_model, variant_name, solver_mo
     pipeline_log["extraction"] = {
         "prompt": prompt_A,
         "response": text_A_full,
-        "extracted_summary": text_A
+        "extracted_summary": text_A,
+        "duration_seconds": round(res_A.get("duration", 0), 2),
+        "total_cost": res_A.get("cost", 0),
+        "input_tokens": res_A.get("input_tokens", 0),
+        "output_tokens": res_A.get("output_tokens", 0),
+        "cached_tokens": res_A.get("cached_tokens", 0),
     }
 
     # Phase B: Transformation
@@ -37,7 +42,12 @@ def run_objects_pipeline_variant(state, generator_model, variant_name, solver_mo
     pipeline_log["transformation"] = {
         "prompt": prompt_B,
         "response": text_B_full,
-        "extracted_summary": text_B
+        "extracted_summary": text_B,
+        "duration_seconds": round(res_B.get("duration", 0), 2),
+        "total_cost": res_B.get("cost", 0),
+        "input_tokens": res_B.get("input_tokens", 0),
+        "output_tokens": res_B.get("output_tokens", 0),
+        "cached_tokens": res_B.get("cached_tokens", 0),
     }
 
     # Phase C: Solution

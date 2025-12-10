@@ -43,6 +43,13 @@ def run_judge(judge_name, prompt, judge_model, openai_client, anthropic_client, 
         response_obj = call_model(openai_client, anthropic_client, google_keys, prompt, judge_model)
         result_container["response"] = response_obj.text
         
+        # Capture metrics
+        result_container["duration_seconds"] = round(response_obj.duration, 2)
+        result_container["total_cost"] = response_obj.cost
+        result_container["input_tokens"] = response_obj.input_tokens
+        result_container["output_tokens"] = response_obj.output_tokens
+        result_container["cached_tokens"] = response_obj.cached_tokens
+        
         parsed_json = extract_json(response_obj.text)
         
         if parsed_json:

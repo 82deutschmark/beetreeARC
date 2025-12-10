@@ -133,6 +133,11 @@ def run_step_5(state, models, hint_model, objects_only=False):
                 "Full raw LLM call": hint_data["prompt"],
                 "Full raw LLM response": hint_data["full_response"],
                 "Extracted hint": hint_data["hint"],
+                "duration_seconds": round(hint_data.get("duration", 0), 2),
+                "total_cost": hint_data.get("cost", 0),
+                "input_tokens": hint_data.get("input_tokens", 0),
+                "output_tokens": hint_data.get("output_tokens", 0),
+                "cached_tokens": hint_data.get("cached_tokens", 0),
             }
             prompt_hint = build_prompt(state.task.train, state.test_example, strategy=hint_data["hint"])
             results_hint = run_models_in_parallel(models, state.run_id_counts, "step_5_generate_hint", prompt_hint, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, task_id=state.task_id, test_index=state.test_index, on_task_complete=on_complete)

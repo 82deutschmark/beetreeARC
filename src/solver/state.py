@@ -76,6 +76,7 @@ class SolverState:
                     "Full raw LLM call": res["prompt"],
                     "Full raw LLM response": res["full_response"],
                     "Extracted grid": res["grid"],
+                    "is_correct": res.get("is_correct"),
                 }
                 
                 # Store reasoning for the Judge

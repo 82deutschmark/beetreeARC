@@ -149,6 +149,11 @@ HINT_END
             "hint": hint,
             "prompt": prompt,
             "full_response": response.text,
+            "duration": response.duration,
+            "cost": response.cost,
+            "input_tokens": response.input_tokens,
+            "output_tokens": response.output_tokens,
+            "cached_tokens": response.cached_tokens,
         }
 
     finally:
