@@ -20,6 +20,11 @@ def parse_model_arg(model_arg: str) -> ModelConfig:
     if model_arg not in SUPPORTED_MODELS:
         raise ValueError(f"Model '{model_arg}' not supported. Choose from {SUPPORTED_MODELS}")
 
+    if model_arg.startswith("gpt-5.1-codex-max-"):
+        parts = model_arg.split("-")
+        effort = parts[-1]
+        return ModelConfig("openai", "gpt-5.1-codex-max", effort)
+
     if model_arg.startswith("gpt-5.1-"):
         parts = model_arg.split("-")
         effort = parts[-1]

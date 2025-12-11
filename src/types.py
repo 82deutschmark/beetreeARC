@@ -10,6 +10,7 @@ GEMINI_3_BASE = "gemini-3-pro-preview"
 
 PRICING_PER_1M_TOKENS = {
     GPT_5_1_BASE: {"input": 1.25, "cached_input": 0.125, "output": 10.00},
+    "gpt-5.1-codex-max": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
     CLAUDE_SONNET_BASE: {
         "input": 3.00,
         "cached_input": 0.30,
@@ -32,6 +33,8 @@ ORDERED_MODELS = [
     "gpt-5.1-low",
     "gpt-5.1-medium",
     "gpt-5.1-high",
+    "gpt-5.1-codex-max-high",
+    "gpt-5.1-codex-max-xhigh",
     "claude-sonnet-4.5-no-thinking",
     "claude-sonnet-4.5-thinking-1024",
     "claude-sonnet-4.5-thinking-4000",
