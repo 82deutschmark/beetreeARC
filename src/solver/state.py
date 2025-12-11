@@ -11,7 +11,7 @@ from src.reporting import print_solver_summary
 from src.logging import setup_logging, write_step_log, PrefixedStdout
 
 class SolverState:
-    def __init__(self, task_id: str, test_index: int, verbose: int, is_testing: bool, run_timestamp: str, task_path: Path = None, answer_path: Path = None, judge_model: str = "gemini-3-high", old_pick_solution: bool = False, task_status=None, openai_background: bool = False):
+    def __init__(self, task_id: str, test_index: int, verbose: int, is_testing: bool, run_timestamp: str, task_path: Path = None, answer_path: Path = None, judge_model: str = "gemini-3-high", old_pick_solution: bool = False, task_status=None, openai_background: bool = True):
         self.task_id = task_id
         self.test_index = test_index
         self.verbose = verbose
@@ -119,7 +119,8 @@ class SolverState:
                             self.anthropic_client,
                             self.google_keys,
                             self.judge_model,
-                            self.verbose
+                            self.verbose,
+                            openai_background=self.openai_background
                         )        
         if not has_ground_truth:
             outcome = "SUBMITTED"

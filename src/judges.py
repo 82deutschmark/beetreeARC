@@ -37,13 +37,13 @@ def extract_json(text):
             
     return None
 
-def run_judge(judge_name, prompt, judge_model, openai_client, anthropic_client, google_keys, result_container, verbose: int = 0):
+def run_judge(judge_name, prompt, judge_model, openai_client, anthropic_client, google_keys, result_container, verbose: int = 0, use_background: bool = False):
     if verbose >= 1:
         print(f"\n[pick_solution_v2] Running {judge_name} Judge ({judge_model})...")
     
     try:
         start_ts = time.perf_counter()
-        response_obj = call_model(openai_client, anthropic_client, google_keys, prompt, judge_model)
+        response_obj = call_model(openai_client, anthropic_client, google_keys, prompt, judge_model, use_background=use_background)
         duration = time.perf_counter() - start_ts
         print(f"[Temporary] Model {judge_model} (Judge: {judge_name}) finished in {duration:.2f}s", file=sys.stderr)
         

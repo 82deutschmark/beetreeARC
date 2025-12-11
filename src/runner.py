@@ -39,7 +39,7 @@ def run_app(
     answers_directory=None,
     solver=False,
     solver_testing=False,
-    openai_background=False,
+    openai_background=True,
 ):
     # Construct args namespace to pass around internally as many legacy functions expect it
     args = SimpleNamespace(

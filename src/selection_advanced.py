@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.audit_prompts import build_logic_prompt, build_consistency_prompt
 from src.judges import run_judge
 
-def pick_solution_v2(candidates_object, reasoning_store, task, test_index, openai_client, anthropic_client, google_keys, judge_model="gemini-3-high", verbose: int = 0):
+def pick_solution_v2(candidates_object, reasoning_store, task, test_index, openai_client, anthropic_client, google_keys, judge_model="gemini-3-high", verbose: int = 0, openai_background: bool = False):
     """
     Advanced solution picker using TWO LLM Judges (Logic & Consistency).
     Replicates methodology from solution_handler.py:
@@ -73,8 +73,8 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
     cons_data = { "prompt": full_prompt_cons, "response": None, "parsed": None }
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        future_logic = executor.submit(run_judge, "Logic", full_prompt_logic, judge_model, openai_client, anthropic_client, google_keys, logic_data, verbose)
-        future_cons = executor.submit(run_judge, "Consistency", full_prompt_cons, judge_model, openai_client, anthropic_client, google_keys, cons_data, verbose)
+        future_logic = executor.submit(run_judge, "Logic", full_prompt_logic, judge_model, openai_client, anthropic_client, google_keys, logic_data, verbose, openai_background)
+        future_cons = executor.submit(run_judge, "Consistency", full_prompt_cons, judge_model, openai_client, anthropic_client, google_keys, cons_data, verbose, openai_background)
         
         logic_res = future_logic.result()
         cons_res = future_cons.result()
