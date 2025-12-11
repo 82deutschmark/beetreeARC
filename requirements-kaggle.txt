@@ -1,6 +1,7 @@
 # --- Core model clients ---
 openai==2.9.0
 anthropic
+httpx==0.28.1
 
 # Gemini client — requires >=1.52.0 for thinking_level
 google-genai>=1.52.0
