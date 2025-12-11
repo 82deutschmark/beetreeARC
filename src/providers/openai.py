@@ -27,37 +27,6 @@ def call_openai_internal(
     model = config.base_model
     reasoning_effort = str(config.config) # Cast to string for safety
 
-    def _safe_create(**kwargs):
-        try:
-            return client.responses.create(**kwargs)
-        except Exception as e:
-            # 1. Known SDK Retryables
-            if isinstance(e, (openai.RateLimitError, openai.APIConnectionError, openai.InternalServerError)):
-                raise RetryableProviderError(f"OpenAI Transient Error (Model: {model}): {e}") from e
-            
-            # 2. Known SDK Non-Retryables
-            if isinstance(e, (openai.BadRequestError, openai.AuthenticationError, openai.PermissionDeniedError)):
-                raise NonRetryableProviderError(f"OpenAI Fatal Error (Model: {model}): {e}") from e
-
-            # 3. String matching for other transient network errors
-            err_str = str(e)
-            if (
-                "Connection error" in err_str
-                or "500" in err_str
-                or "server_error" in err_str
-                or "upstream connect error" in err_str
-                or "timed out" in err_str
-                or "Server disconnected" in err_str
-                or "RemoteProtocolError" in err_str
-                or "connection closed" in err_str.lower()
-                or "peer closed connection" in err_str.lower()
-                or "incomplete chunked read" in err_str.lower()
-            ):
-                raise RetryableProviderError(f"Network/Protocol Error (Model: {model}): {e}") from e
-
-            # 4. True Unknowns -> Loud Retry
-            raise UnknownProviderError(f"Unexpected OpenAI Error (Model: {model}): {e}") from e
-
     def _solve(p: str) -> ModelResponse:
         content = [{"type": "input_text", "text": p}]
         if image_path:
@@ -84,34 +53,65 @@ def call_openai_internal(
         print(f"DEBUG [OpenAI Call]: Model={model}, Stream={kwargs.get('stream')}, Timeout={kwargs.get('timeout')}", file=sys.stderr)
 
         def _call_and_accumulate():
-            stream = _safe_create(**kwargs)
-            collected_content = []
-            usage_data = None
-            response_id = None
-            
-            for chunk in stream:
-                chunk_type = getattr(chunk, "type", "")
+            try:
+                # 1. Create the stream
+                stream = client.responses.create(**kwargs)
+                collected_content = []
+                usage_data = None
+                response_id = None
                 
-                # 1. Capture Response ID
-                if chunk_type == "response.created":
-                    if hasattr(chunk, "response") and hasattr(chunk.response, "id"):
-                        response_id = chunk.response.id
+                # 2. Consume the stream (protected by try/except)
+                for chunk in stream:
+                    chunk_type = getattr(chunk, "type", "")
+                    
+                    # 1. Capture Response ID
+                    if chunk_type == "response.created":
+                        if hasattr(chunk, "response") and hasattr(chunk.response, "id"):
+                            response_id = chunk.response.id
 
-                # 2. Capture Text Delta
-                if chunk_type == "response.output_text.delta":
-                    if hasattr(chunk, "delta") and chunk.delta:
-                        collected_content.append(chunk.delta)
+                    # 2. Capture Text Delta
+                    if chunk_type == "response.output_text.delta":
+                        if hasattr(chunk, "delta") and chunk.delta:
+                            collected_content.append(chunk.delta)
+                    
+                    # 3. Capture Usage
+                    if chunk_type == "response.completed":
+                        if hasattr(chunk, "response") and hasattr(chunk.response, "usage"):
+                            usage_data = chunk.response.usage
+
+                return {
+                    "text": "".join(collected_content),
+                    "usage": usage_data,
+                    "id": response_id
+                }
+
+            except Exception as e:
+                # 1. Known SDK Retryables
+                if isinstance(e, (openai.RateLimitError, openai.APIConnectionError, openai.InternalServerError)):
+                    raise RetryableProviderError(f"OpenAI Transient Error (Model: {model}): {e}") from e
                 
-                # 3. Capture Usage
-                if chunk_type == "response.completed":
-                    if hasattr(chunk, "response") and hasattr(chunk.response, "usage"):
-                        usage_data = chunk.response.usage
+                # 2. Known SDK Non-Retryables
+                if isinstance(e, (openai.BadRequestError, openai.AuthenticationError, openai.PermissionDeniedError)):
+                    raise NonRetryableProviderError(f"OpenAI Fatal Error (Model: {model}): {e}") from e
 
-            return {
-                "text": "".join(collected_content),
-                "usage": usage_data,
-                "id": response_id
-            }
+                # 3. String matching for other transient network errors
+                err_str = str(e)
+                if (
+                    "Connection error" in err_str
+                    or "500" in err_str
+                    or "server_error" in err_str
+                    or "upstream connect error" in err_str
+                    or "timed out" in err_str
+                    or "Server disconnected" in err_str
+                    or "RemoteProtocolError" in err_str
+                    or "connection closed" in err_str.lower()
+                    or "peer closed connection" in err_str.lower()
+                    or "incomplete chunked read" in err_str.lower()
+                ):
+                    raise RetryableProviderError(f"Network/Protocol Error (Model: {model}): {e}") from e
+
+                # 4. True Unknowns -> Loud Retry
+                raise UnknownProviderError(f"Unexpected OpenAI Error (Model: {model}): {e}") from e
 
         result = run_with_retry(
             lambda: _call_and_accumulate(),
