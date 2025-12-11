@@ -151,7 +151,7 @@ def call_openai_internal(
             
             elif job.status == "failed":
                 err_msg = f"Code: {job.error.code}, Message: {job.error.message}" if job.error else "Unknown error"
-                raise NonRetryableProviderError(f"OpenAI Background Job {job_id} FAILED: {err_msg}")
+                raise RetryableProviderError(f"OpenAI Background Job {job_id} FAILED: {err_msg}")
             
             elif job.status in ("cancelled", "incomplete"):
                  reason = getattr(job, 'incomplete_details', 'Unknown')
@@ -289,8 +289,11 @@ def call_openai_internal(
 
     if use_background:
         # Background mode implies solving only (strategy extraction in background mode is not yet implemented/needed)
-        # We wrap it in run_with_retry at the job level, but _solve_background handles its own retry for parts.
-        # Actually _solve_background handles retries internally for submit/retrieve.
-        return _solve_background(prompt)
+        # We wrap it in run_with_retry at the job level, so if the job FAILS (RetryableProviderError), we submit a new one.
+        return run_with_retry(
+            lambda: _solve_background(prompt),
+            task_id=task_id,
+            test_index=test_index
+        )
 
     return orchestrate_two_stage(_solve, _explain, prompt, return_strategy, verbose, image_path)
