@@ -1,0 +1,165 @@
+import json
+
+def check_correctness(call_val, task_id, test_id, answers):
+    is_correct = call_val.get("is_correct")
+    # Fallback to ground truth check ONLY if is_correct is missing
+    if is_correct is None and "Extracted grid" in call_val:
+        extracted = call_val["Extracted grid"]
+        if task_id in answers:
+            idx = int(test_id) - 1
+            if 0 <= idx < len(answers[task_id]):
+                correct_grid = answers[task_id][idx]
+                if extracted == correct_grid:
+                    is_correct = True
+                else:
+                    is_correct = False
+    return is_correct
+
+def create_call_info(name, data, task_id, test_id, answers):
+    duration = 0
+    cost = 0
+    status_str = ""
+    
+    if isinstance(data, dict):
+        duration = data.get("duration_seconds", 0)
+        cost = data.get("total_cost", 0)
+        is_correct = check_correctness(data, task_id, test_id, answers)
+        
+        if is_correct is True:
+            status_str = "PASS"
+        elif is_correct is False:
+            status_str = "FAIL"
+            
+    return {
+        "name": name,
+        "duration": duration,
+        "cost": cost,
+        "status": status_str
+    }
+
+def parse_finish_step(content):
+    result = {
+        "finish_data": content,
+        "finish_status": None,
+        "calls": []
+    }
+    
+    if isinstance(content, dict):
+        if "result" in content:
+            result["finish_status"] = content["result"]
+            
+        # Extract judges info for display
+        if "selection_details" in content:
+            sel_details = content["selection_details"]
+            if isinstance(sel_details, dict) and "judges" in sel_details:
+                judges = sel_details["judges"]
+                if isinstance(judges, dict):
+                    for judge_name, judge_data in judges.items():
+                        if isinstance(judge_data, dict):
+                            duration = judge_data.get("duration_seconds", 0)
+                            cost = judge_data.get("total_cost", 0)
+                            model = judge_data.get("model", "")
+                            
+                            display_name = f"Judge ({judge_name.capitalize()})"
+                            if model:
+                                display_name += f" - {model}"
+                                
+                            result["calls"].append({
+                                "name": display_name,
+                                "duration": duration,
+                                "cost": cost,
+                                "status": ""
+                            })
+    return result
+
+def parse_nested_step(content, task_id, test_id, answers):
+    result = {
+        "steps": {}, # sub-steps
+        "solved": False
+    }
+    
+    if isinstance(content, dict) and content.get("is_solved") is True:
+        result["solved"] = True
+
+    # Handle nested structure for step 5
+    # content is { "sub-step": { "call": ... }, ... }
+    for sub_step, calls_dict in content.items():
+        if not isinstance(calls_dict, dict):
+            continue 
+
+        new_step_name = f"5-{sub_step}"
+        cleaned_calls = []
+        
+        nested_containers = ["hint_generation", "gemini_gen", "opus_gen"]
+        
+        for call_key, call_val in calls_dict.items():
+            if call_key in nested_containers and isinstance(call_val, dict):
+                # Process nested calls
+                for inner_call, inner_val in call_val.items():
+                    if not isinstance(inner_val, dict):
+                        continue
+                        
+                    if "_step_" in inner_call:
+                        cleaned_name = inner_call.split("_step_")[0]
+                    else:
+                        cleaned_name = inner_call
+                    
+                    model = inner_val.get("model", "")
+                    if model:
+                        cleaned_name += f" ({model})"
+                    
+                    cleaned_calls.append(create_call_info(cleaned_name, inner_val, task_id, test_id, answers))
+            else:
+                # Process normal call
+                if "_step_" in call_key:
+                    cleaned_name = call_key.split("_step_")[0]
+                else:
+                    cleaned_name = call_key
+                
+                cleaned_calls.append(create_call_info(cleaned_name, call_val, task_id, test_id, answers))
+        
+        result["steps"][new_step_name] = cleaned_calls
+        
+    return result
+
+def parse_generic_step(content, task_id, test_id, answers):
+    result = {
+        "calls": [],
+        "solved": False
+    }
+
+    if isinstance(content, dict) and content.get("is_solved") is True:
+         result["solved"] = True
+
+    if not isinstance(content, dict):
+        return result
+
+    for call_key, call_val in content.items():
+        if call_key == "is_solved": continue 
+
+        if "_step_" in call_key:
+            cleaned_name = call_key.split("_step_")[0]
+        else:
+            cleaned_name = call_key
+        
+        result["calls"].append(create_call_info(cleaned_name, call_val, task_id, test_id, answers))
+        
+    return result
+
+def parse_log_file(filepath, task_id, test_id, step_name, answers):
+    """
+    Parses a single log file and returns a structured dictionary of results.
+    """
+    try:
+        with open(filepath, 'r') as f:
+            content = json.load(f)
+    except Exception as e:
+        print(f"Warning: Could not read {filepath}: {e}")
+        return None
+
+    if step_name == "finish":
+        return {"type": "finish", "data": parse_finish_step(content)}
+    elif step_name == "5":
+        return {"type": "nested", "data": parse_nested_step(content, task_id, test_id, answers)}
+    else:
+        return {"type": "generic", "data": parse_generic_step(content, task_id, test_id, answers)}
