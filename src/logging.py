@@ -83,12 +83,54 @@ class PrefixedStdout:
     def flush(self):
         self.original_stdout.flush()
         
+    def write_raw(self, text):
+        """
+        Writes to the underlying stream without any prefixing.
+        Used by StderrToStdoutRedirector to bypass the table formatting.
+        """
+        if not text:
+            return
+        
+        self.original_stdout.write(text)
+        
+        # Update state tracking based on the last character written
+        # If the last character was a newline, we are at the start of a new line.
+        if text.endswith('\n'):
+            self.at_line_start = True
+        else:
+            self.at_line_start = False
+        
     def __enter__(self):
         sys.stdout = self
         return self
         
     def __exit__(self, exc_type, exc_value, traceback):
         sys.stdout = self.original_stdout
+
+class StderrToStdoutRedirector:
+    """
+    Redirects stderr writes to stdout.
+    If the current stdout is a PrefixedStdout (i.e., we are drawing a table),
+    it uses 'write_raw' to bypass the table prefix, ensuring error messages
+    appear as full-width, unformatted text.
+    """
+    def write(self, text):
+        # Always resolve sys.stdout dynamically because it changes 
+        # when entering/exiting PrefixedStdout contexts.
+        current_stdout = sys.stdout
+        
+        if hasattr(current_stdout, "write_raw"):
+            current_stdout.write_raw(text)
+        else:
+            current_stdout.write(text)
+
+    def flush(self):
+        sys.stdout.flush()
+
+    def reconfigure(self, *args, **kwargs):
+        # Proxy to stdout if possible
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(*args, **kwargs)
 
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(f"arc_agi.{name}")

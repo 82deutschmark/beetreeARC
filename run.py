@@ -8,8 +8,12 @@ if hasattr(sys.stderr, "reconfigure"):
 
 import argparse
 from src.runner import run_app
+from src.logging import StderrToStdoutRedirector
 
 def main():
+    # Redirect stderr to stdout using our smart wrapper that handles table prefixes
+    sys.stderr = StderrToStdoutRedirector()
+
     parser = argparse.ArgumentParser(description="Run ARC task test cases with multiple models in parallel.")
     
     # Task selection group
