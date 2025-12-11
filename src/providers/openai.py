@@ -75,27 +75,53 @@ def call_openai_internal(
             "model": model,
             "input": [{"role": "user", "content": content}],
             "timeout": 3600,
+            "stream": True,
         }
         if reasoning_effort != "none":
             kwargs["reasoning"] = {"effort": reasoning_effort}
 
-        response = run_with_retry(
-            lambda: _safe_create(**kwargs),
+        def _call_and_accumulate():
+            stream = _safe_create(**kwargs)
+            collected_content = []
+            usage_data = None
+            response_id = None
+            
+            for chunk in stream:
+                chunk_type = getattr(chunk, "type", "")
+                
+                # 1. Capture Response ID
+                if chunk_type == "response.created":
+                    if hasattr(chunk, "response") and hasattr(chunk.response, "id"):
+                        response_id = chunk.response.id
+
+                # 2. Capture Text Delta
+                if chunk_type == "response.output_text.delta":
+                    if hasattr(chunk, "delta") and chunk.delta:
+                        collected_content.append(chunk.delta)
+                
+                # 3. Capture Usage
+                if chunk_type == "response.completed":
+                    if hasattr(chunk, "response") and hasattr(chunk.response, "usage"):
+                        usage_data = chunk.response.usage
+
+            return {
+                "text": "".join(collected_content),
+                "usage": usage_data,
+                "id": response_id
+            }
+
+        result = run_with_retry(
+            lambda: _call_and_accumulate(),
             task_id=task_id,
             test_index=test_index
         )
 
-        text_output = ""
-        if hasattr(response, "output"):
-            for item in response.output:
-                if item.type == "message":
-                    for content_part in item.content:
-                        if content_part.type == "output_text":
-                            text_output += content_part.text
+        text_output = result["text"]
         if not text_output:
-            raise RuntimeError(f"OpenAI Responses API Step 1 did not return text output. Response: {response}")
+            # We construct a partial response string for debugging if empty
+            raise RuntimeError(f"OpenAI Responses API Step 1 did not return text output. Result ID: {result.get('id')}")
 
-        usage = getattr(response, "usage", None)
+        usage = result["usage"]
         # Store the raw response object for Step 2 linkage
         resp_obj = ModelResponse(
             text=text_output,
@@ -104,7 +130,12 @@ def call_openai_internal(
             completion_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
             strategy=None
         )
-        resp_obj._raw_response = response # Private attribute for state passing
+        # Mock the raw response object to support .id access in _explain
+        class MockRawResponse:
+            def __init__(self, rid):
+                self.id = rid
+        
+        resp_obj._raw_response = MockRawResponse(result["id"]) # Private attribute for state passing
         return resp_obj
 
     def _explain(p: str, prev_resp: ModelResponse) -> Optional[ModelResponse]:

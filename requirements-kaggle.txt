@@ -1,5 +1,5 @@
 # --- Core model clients ---
-openai
+openai==2.9.0
 anthropic
 
 # Gemini client — requires >=1.52.0 for thinking_level
