@@ -1,5 +1,6 @@
 import argparse
 import os
+import socket
 import httpx
 from pathlib import Path
 from typing import Optional
@@ -13,11 +14,45 @@ PROVIDER_RATE_LIMITS = {
     "google": {"rate": 15, "period": 60}
 }
 
+class KeepAliveTransport(httpx.HTTPTransport):
+    def _init_pool_manager(self, *args, **kwargs):
+        # Set default socket options
+        options = kwargs.get("socket_options", [])
+        # Enable TCP Keep-Alive
+        options.append((socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1))
+        
+        # Linux specific constants (Kaggle runs on Linux)
+        # TCP_KEEPIDLE: Start sending keep-alives after 30 seconds of silence
+        # TCP_KEEPINTVL: Send subsequent probes every 15 seconds
+        # TCP_KEEPCNT: Allow 5 failed probes before killing
+        try:
+             # Depending on python version/OS, these constants might be in socket module
+             TCP_KEEPIDLE = getattr(socket, 'TCP_KEEPIDLE', 4)
+             TCP_KEEPINTVL = getattr(socket, 'TCP_KEEPINTVL', 5)
+             TCP_KEEPCNT = getattr(socket, 'TCP_KEEPCNT', 6)
+             
+             options.append((socket.IPPROTO_TCP, TCP_KEEPIDLE, 30))
+             options.append((socket.IPPROTO_TCP, TCP_KEEPINTVL, 15))
+             options.append((socket.IPPROTO_TCP, TCP_KEEPCNT, 5))
+        except AttributeError:
+             pass # Fallback for non-Linux if testing locally
+
+        kwargs["socket_options"] = options
+        super()._init_pool_manager(*args, **kwargs)
+
 def get_http_client(**kwargs) -> httpx.Client:
     """Returns a shared httpx client, potentially with insecure SSL if configured."""
     insecure = os.getenv("ARC_AGI_INSECURE_SSL", "").lower() == "true"
     if insecure:
         kwargs["verify"] = False
+    
+    # Use our custom transport if not explicitly overridden
+    if "transport" not in kwargs:
+        kwargs["transport"] = KeepAliveTransport(verify=kwargs.get("verify", True))
+        # Remove verify from kwargs as it is now passed to transport
+        if "verify" in kwargs:
+            del kwargs["verify"]
+
     return httpx.Client(**kwargs)
 
 def parse_args() -> argparse.Namespace:
