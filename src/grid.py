@@ -53,7 +53,14 @@ def parse_grid_from_text(text: str) -> Grid:
         # CSV parsing
         try:
             # Pre-clean: remove ` [ ] and spaces to handle conversational formatting
-            clean_line = stripped.replace("`", "").replace("[", "").replace("]", "").strip()
+            # Replace with space to prevent merging (e.g. "10.`8" -> "10. 8")
+            clean_line = stripped.replace("`", " ").replace("[", " ").replace("]", " ").strip()
+            
+            # Handle numbered lists (e.g. "1. 8,8,8" or "1) 8,8,8")
+            numbered_list_match = re.match(r'^\d+[\.\)]\s+', clean_line)
+            if numbered_list_match:
+                clean_line = clean_line[numbered_list_match.end():]
+
             tokens = clean_line.split(",")
             # Allow for spaces around numbers just in case
             if len(tokens) > 0 and all(t.strip().isdigit() for t in tokens):
