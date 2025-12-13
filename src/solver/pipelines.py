@@ -1,14 +1,14 @@
 from src.tasks import build_prompt, build_objects_extraction_prompt, build_objects_transformation_prompt
 from src.parallel import run_single_model, run_models_in_parallel, extract_tag_content
 
-def run_objects_pipeline_variant(state, generator_model, variant_name, solver_models, on_task_complete=None, use_background=False):
+def run_objects_pipeline_variant(state, generator_model_extract, generator_model_transform, variant_name, solver_models, on_task_complete=None, use_background=False):
     if state.verbose >= 1:
-        print(f"Running Objects Pipeline ({variant_name}) with generator {generator_model}...")
+        print(f"Running Objects Pipeline ({variant_name}) with extract={generator_model_extract}, transform={generator_model_transform}...")
     pipeline_log = {}
     
     # Phase A: Extraction
     prompt_A = build_objects_extraction_prompt(state.task.train, state.test_example)
-    res_A = run_single_model(generator_model, f"step_5_{variant_name}_extract", prompt_A, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, task_id=state.task_id, test_index=state.test_index, use_background=use_background)
+    res_A = run_single_model(generator_model_extract, f"step_5_{variant_name}_extract", prompt_A, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, task_id=state.task_id, test_index=state.test_index, use_background=use_background)
     if on_task_complete:
         on_task_complete()
 
@@ -18,7 +18,7 @@ def run_objects_pipeline_variant(state, generator_model, variant_name, solver_mo
         text_A = text_A_full
     
     pipeline_log["extraction"] = {
-        "model": generator_model,
+        "model": generator_model_extract,
         "prompt": prompt_A,
         "response": text_A_full,
         "extracted_summary": text_A,
@@ -31,7 +31,7 @@ def run_objects_pipeline_variant(state, generator_model, variant_name, solver_mo
 
     # Phase B: Transformation
     prompt_B = build_objects_transformation_prompt(state.task.train, state.test_example, text_A)
-    res_B = run_single_model(generator_model, f"step_5_{variant_name}_transform", prompt_B, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, task_id=state.task_id, test_index=state.test_index, use_background=use_background)
+    res_B = run_single_model(generator_model_transform, f"step_5_{variant_name}_transform", prompt_B, state.test_example, state.openai_client, state.anthropic_client, state.google_keys, state.verbose, run_timestamp=state.run_timestamp, task_id=state.task_id, test_index=state.test_index, use_background=use_background)
     if on_task_complete:
         on_task_complete()
 
@@ -41,7 +41,7 @@ def run_objects_pipeline_variant(state, generator_model, variant_name, solver_mo
         text_B = text_B_full
 
     pipeline_log["transformation"] = {
-        "model": generator_model,
+        "model": generator_model_transform,
         "prompt": prompt_B,
         "response": text_B_full,
         "extracted_summary": text_B,

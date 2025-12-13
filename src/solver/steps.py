@@ -65,7 +65,7 @@ def run_step_5(state, models, hint_model, objects_only=False):
         gen_gemini = "gemini-3-high"
         gen_gpt = "gpt-5.2-xhigh"
         gen_opus = "claude-opus-4.5-thinking-60000"
-        unique_solvers = ["claude-opus-4.5-thinking-60000", "gemini-3-high", "gpt-5.2-xhigh"]
+        unique_solvers = ["claude-opus-4.5-thinking-60000", "gemini-3-high", "gemini-3-high", "gpt-5.2-xhigh", "gpt-5.2-xhigh"]
         
     # Counters setup
     n_models = len(models)
@@ -162,13 +162,13 @@ def run_step_5(state, models, hint_model, objects_only=False):
              # Wait, that breaks the "X left" logic.
              # I should just update pipelines.py next.
              # I'll pass it, assuming I will fix pipelines.py immediately after.
-             futures.append(executor.submit(run_objects_pipeline_variant, state, gen_gpt, "gpt_gen", unique_solvers, lambda: update_progress('objects'), use_background=state.openai_background))
+             futures.append(executor.submit(run_objects_pipeline_variant, state, gen_gemini, gen_gpt, "gpt_gen", unique_solvers, lambda: update_progress('objects'), use_background=state.openai_background))
         else:
             futures = [
                 executor.submit(run_deep_thinking_step, lambda: update_progress('deep')),
                 executor.submit(run_image_step, common_image_path, lambda: update_progress('image')),
                 executor.submit(run_hint_step, common_image_path, lambda: update_progress('hint')),
-                executor.submit(run_objects_pipeline_variant, state, gen_gpt, "gpt_gen", unique_solvers, lambda: update_progress('objects'), use_background=state.openai_background),
+                executor.submit(run_objects_pipeline_variant, state, gen_gemini, gen_gpt, "gpt_gen", unique_solvers, lambda: update_progress('objects'), use_background=state.openai_background),
             ]
             
         for future in as_completed(futures):

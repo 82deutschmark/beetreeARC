@@ -82,7 +82,7 @@ def run_app(
         if args.solver_testing:
             args.judge_model = "gemini-3-low"
         else:
-            args.judge_model = "gemini-3-high"
+            args.judge_model = "gpt-5.2-xhigh"
     
     # If no specific solver mode is chosen, default to --solver
     if not args.solver and not args.solver_testing:
