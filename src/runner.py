@@ -21,6 +21,7 @@ def run_app(
     startup_delay=20.0,
     task_limit=None,
     task_selection=None,
+    task_test_selection=None,
     objects=False,
     step_5_only=False,
     objects_only=False,
@@ -49,6 +50,7 @@ def run_app(
         task_workers=task_workers,
         task_limit=task_limit,
         task_selection=task_selection,
+        task_test_selection=task_test_selection,
         objects=objects,
         step_5_only=step_5_only,
         objects_only=objects_only,
@@ -135,6 +137,20 @@ def run_app(
             print(f"Limiting execution to first {args.task_limit} tasks.")
             task_files = task_files[:args.task_limit]
 
+        task_test_filter = None
+        if args.task_test_selection:
+            try:
+                task_test_filter = set()
+                for item in args.task_test_selection.split(","):
+                    parts = item.strip().split(":")
+                    if len(parts) != 2:
+                        raise ValueError(f"Invalid format for task:test selection: {item}")
+                    task_test_filter.add((parts[0], int(parts[1])))
+                print(f"Filtering to {len(task_test_filter)} specific task:test pairs.")
+            except Exception as e:
+                print(f"Error parsing --task-test-selection: {e}", file=sys.stderr)
+                sys.exit(1)
+
         # Prepare tasks
         tasks_to_run = []
         for task_file in task_files:
@@ -144,7 +160,11 @@ def run_app(
                 task = load_task(task_file)
                 num_tests = len(task.test)
                 for i in range(num_tests):
-                    tasks_to_run.append((task_file, i + 1))
+                    test_idx = i + 1
+                    if task_test_filter is not None:
+                        if (task_file.stem, test_idx) not in task_test_filter:
+                            continue
+                    tasks_to_run.append((task_file, test_idx))
             except Exception as e:
                 print(f"Error loading task {task_file}: {e}", file=sys.stderr)
 
