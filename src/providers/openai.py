@@ -132,7 +132,7 @@ def call_openai_internal(
                                 task_id=task_id if task_id else "UNKNOWN",
                                 run_id="OPENAI_BG_TIMEOUT",
                                 error=RetryableProviderError(f"OpenAI Job {job_id} timed out. Falling back to Claude Opus..."),
-                                model=f"{model}-{reasoning_effort}",
+                                model=full_model_name,
                                 step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
                                 test_index=test_index,
                                 is_retryable=True
@@ -281,19 +281,16 @@ def call_openai_internal(
                     if "max_output_tokens" in reason_str or "token_limit" in reason_str:
                         context_str = f"[{task_id}:{test_index}] ({step_name})" if task_id and step_name else ""
                         if reasoning_effort == "xhigh":
-                            logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus...")
-                            
-                            if run_timestamp:
-                                log_failure(
-                                    run_timestamp=run_timestamp,
-                                    task_id=task_id if task_id else "UNKNOWN",
-                                    run_id="OPENAI_BG_TOKEN_LIMIT",
-                                    error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus..."),
-                                    model=f"{model}-{reasoning_effort}",
-                                    step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
-                                    test_index=test_index,
-                                    is_retryable=True
-                                )
+                            log_failure(
+                                run_timestamp=run_timestamp,
+                                task_id=task_id if task_id else "UNKNOWN",
+                                run_id="OPENAI_BG_TOKEN_LIMIT",
+                                error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus..."),
+                                model=full_model_name,
+                                step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
+                                test_index=test_index,
+                                is_retryable=True
+                            )
 
                             if not anthropic_client:
                                 raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
@@ -329,17 +326,16 @@ def call_openai_internal(
                             logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus (no-thinking)...")
                             
                             if run_timestamp:
-                                log_failure(
-                                    run_timestamp=run_timestamp,
-                                    task_id=task_id if task_id else "UNKNOWN",
-                                    run_id="OPENAI_BG_TOKEN_LIMIT",
-                                    error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus..."),
-                                    model=f"{model}-{reasoning_effort}",
-                                    step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
-                                    test_index=test_index,
-                                    is_retryable=True
-                                )
-
+                                                            log_failure(
+                                                                run_timestamp=run_timestamp,
+                                                                task_id=task_id if task_id else "UNKNOWN",
+                                                                run_id="OPENAI_BG_TOKEN_LIMIT",
+                                                                error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus..."),
+                                                                model=full_model_name,
+                                                                step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
+                                                                test_index=test_index,
+                                                                is_retryable=True
+                                                            )
                             if not anthropic_client:
                                 raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
 

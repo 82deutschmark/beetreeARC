@@ -28,12 +28,13 @@ def call_gemini(
     task_id: str = None,
     test_index: int = None,
     run_timestamp: str = None,
+    model_alias: str = None,
     timing_tracker: list[dict] = None,
 ) -> ModelResponse:
     
     model = config.base_model
     thinking_level = str(config.config)
-    full_model_name = f"{model}-{thinking_level}"
+    full_model_name = model_alias if model_alias else f"{model}-{thinking_level}"
     
     # Randomly select a key
     if not keys:

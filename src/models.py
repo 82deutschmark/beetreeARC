@@ -126,6 +126,7 @@ def call_model(
             use_background=use_background,
             run_timestamp=run_timestamp,
             anthropic_client=anthropic_client,
+            model_alias=model_arg,
             timing_tracker=timings,
         )
     elif config.provider == "anthropic":
@@ -141,6 +142,7 @@ def call_model(
             task_id=task_id,
             test_index=test_index,
             run_timestamp=run_timestamp,
+            model_alias=model_arg,
             timing_tracker=timings,
         )
     elif config.provider == "google":
@@ -156,6 +158,7 @@ def call_model(
             task_id=task_id,
             test_index=test_index,
             run_timestamp=run_timestamp,
+            model_alias=model_arg,
             timing_tracker=timings,
         )
     else:
