@@ -113,7 +113,7 @@ def parse_logs(directory):
                                 error_msg = record.get("error_message", "")
                                 
                                 is_max_token = "max_output_tokens" in error_msg
-                                is_timeout = "timed out after 3600s" in error_msg
+                                is_timeout = "timed out after 3600s" in error_msg or "timed out. Falling back" in error_msg
                                 is_server_error = "server_error" in error_msg
                                 is_403 = "Error code: 403" in error_msg
                                 
@@ -153,6 +153,8 @@ def parse_logs(directory):
                     solved_count += 1
         
         print(f"{task_id}:{test_id},{status},{solved_count}")
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="Parse log files to extract task and test IDs.")
