@@ -109,6 +109,9 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
         if response.model_name and response.model_name != model_name:
             if verbose:
                 print(f"{prefix} Model fallback occurred: {model_name} -> {response.model_name}")
+            
+            # Update run_id to reflect the new model
+            run_id = run_id.replace(model_name, response.model_name, 1)
             model_name = response.model_name
         
         try:
