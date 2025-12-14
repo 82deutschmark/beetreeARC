@@ -153,11 +153,44 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
         }
     }
 
+    # Prepare Judge Feedback Map
+    judge_feedback_map = {}
+    if logic_res and "candidates" in logic_res:
+        for c in logic_res["candidates"]:
+            cid = c.get("candidate_id")
+            feedback = []
+            if "rule_summary" in c:
+                feedback.append(f"Judge Rule Summary: {c['rule_summary']}")
+            if "example_audit" in c and "summary" in c["example_audit"]:
+                feedback.append(f"Judge Audit Summary: {c['example_audit']['summary']}")
+            if "test_grid_consistency" in c:
+                feedback.append(f"Judge Consistency Check: {c['test_grid_consistency']}")
+            
+            if feedback:
+                judge_feedback_map[cid] = "\n\n--- JUDGE FEEDBACK ---\n" + "\n".join(feedback)
+
     # 7. Construct Return Output
     top_groups = []
     for cand in final_selection:
         grid_tuple = tuple(tuple(row) for row in cand['grid'])
-        top_groups.append(candidates_object[grid_tuple])
+        group = candidates_object[grid_tuple]
+        
+        final_summary_parts = []
+
+        # 1. Judge Feedback First
+        if cand['id'] in judge_feedback_map:
+            final_summary_parts.append(judge_feedback_map[cand['id']])
+
+        # 2. Raw Reasoning Second
+        if cand["reasoning"]:
+            # Take the reasoning from the first model that produced this candidate
+            first_model_id = next(iter(cand["reasoning"]))
+            raw_reasoning = cand["reasoning"][first_model_id]
+            final_summary_parts.append("\n\n--- EXAMPLE REASONING ---\n" + raw_reasoning)
+            
+        group["reasoning_summary"] = "".join(final_summary_parts).strip()
+            
+        top_groups.append(group)
 
     # 8. Final Success Check
     if verbose >= 1:

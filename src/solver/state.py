@@ -9,6 +9,7 @@ from src.run_utils import find_task_path
 from src.selection import pick_solution_v2, pick_solution
 from src.reporting import print_solver_summary
 from src.logging import setup_logging, write_step_log, PrefixedStdout
+from src.models import parse_model_arg, PRICING_PER_1M_TOKENS, GEMINI_3_BASE
 
 class SolverState:
     def __init__(self, task_id: str, test_index: int, verbose: int, is_testing: bool, run_timestamp: str, task_path: Path = None, answer_path: Path = None, judge_model: str = "gemini-3-high", old_pick_solution: bool = False, task_status=None, openai_background: bool = True, judge_consistency_enable: bool = False):
@@ -34,6 +35,19 @@ class SolverState:
         self.run_id_counts = {}
         self.candidates_object = {}
         self.reasoning_store = {}
+        
+        self.usage_stats = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "reasoning_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0,
+            "prompt_cost": 0.0,
+            "completion_cost": 0.0,
+            "reasoning_cost": 0.0,
+            "total_cost": 0.0
+        }
         
         # Load Task
         if task_path is None:
@@ -68,6 +82,67 @@ class SolverState:
         for res in results:
             if res:
                 self.total_cost += res.get("cost", 0)
+                
+                # Usage Stats Aggregation
+                input_tokens = res.get("input_tokens", 0)
+                cached_tokens = res.get("cached_tokens", 0)
+                output_tokens = res.get("output_tokens", 0)
+                
+                self.usage_stats["prompt_tokens"] += (input_tokens + cached_tokens)
+                self.usage_stats["completion_tokens"] += output_tokens
+                self.usage_stats["total_tokens"] += (input_tokens + cached_tokens + output_tokens)
+                self.usage_stats["accepted_prediction_tokens"] += output_tokens # Per instructions
+                
+                # Cost Breakdown Calculation
+                try:
+                    model_arg = res.get("model")
+                    if model_arg:
+                        config = parse_model_arg(model_arg)
+                        base_model = config.base_model
+                        pricing = PRICING_PER_1M_TOKENS.get(
+                            base_model, {"input": 0, "cached_input": 0, "output": 0}
+                        )
+                        
+                        # Special Gemini logic
+                        if base_model == GEMINI_3_BASE and (input_tokens + cached_tokens) > 200000:
+                            pricing = {"input": 4.00, "cached_input": 0.40, "output": 18.00}
+                            
+                        non_cached_input = max(0, input_tokens) # assuming input_tokens is already non-cached in res or check logic. 
+                        # In models.py: calculate_cost uses response.prompt_tokens - response.cached_tokens. 
+                        # res["input_tokens"] usually comes from response.prompt_tokens (total prompt) or just prompt?
+                        # Let's assume res["input_tokens"] is TOTAL PROMPT tokens based on standard usage, or check usage.
+                        # Actually standard OpenAI usage: prompt_tokens is total. 
+                        # But in process_results above I did: input_tokens + cached_tokens. 
+                        # If res["input_tokens"] is total prompt tokens, then adding cached_tokens again is double counting if cached is included.
+                        # Let's check src/models.py: response.prompt_tokens is from usage.prompt_tokens. 
+                        # response.cached_tokens is from usage.prompt_tokens_details.cached_tokens.
+                        # So prompt_tokens INCLUDES cached_tokens.
+                        # Re-checking previous logic:
+                        # calculate_cost: non_cached_input = max(0, response.prompt_tokens - response.cached_tokens)
+                        
+                        # So:
+                        total_prompt_tokens = input_tokens # Assuming res['input_tokens'] maps to response.prompt_tokens
+                        # If res['input_tokens'] was derived differently, this might be off.
+                        # Assuming res['input_tokens'] == response.prompt_tokens (Total)
+                        
+                        # Fix for token aggregation above:
+                        # self.usage_stats["prompt_tokens"] += total_prompt_tokens (Total)
+                        # self.usage_stats["total_tokens"] += total_prompt_tokens + output_tokens
+                        
+                        non_cached_val = max(0, total_prompt_tokens - cached_tokens)
+                        
+                        p_cost = (non_cached_val / 1_000_000 * pricing["input"]) + \
+                                 (cached_tokens / 1_000_000 * pricing.get("cached_input", 0))
+                        
+                        c_cost = (output_tokens / 1_000_000 * pricing["output"])
+                        
+                        self.usage_stats["prompt_cost"] += p_cost
+                        self.usage_stats["completion_cost"] += c_cost
+                        self.usage_stats["total_cost"] += (p_cost + c_cost)
+                except Exception as e:
+                    pass # Fallback or ignore cost breakdown errors
+                
+                
                 run_key = f"{res['run_id']}_{time.time()}"
                 step_log[run_key] = {
                     "duration_seconds": round(res.get("duration", 0), 2),
@@ -145,4 +220,4 @@ class SolverState:
         self.print_summary(outcome)
         
         self.close()
-        return picked_solutions
+        return picked_solutions, self.usage_stats
