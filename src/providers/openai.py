@@ -69,253 +69,318 @@ def call_openai_internal(
         import time
         import random
         nonlocal reasoning_effort, last_failed_job_id, is_downgraded_retry
-
-        content = [{"type": "input_text", "text": p}]
-        if image_path:
-            with open(image_path, "rb") as image_file:
-                base64_image = base64.b64encode(image_file.read()).decode('utf-8')
-            mime_type, _ = mimetypes.guess_type(image_path)
-            if mime_type is None:
-                mime_type = 'application/octet-stream'
-            content.append({
-                "type": "input_image",
-                "image_url": f"data:{mime_type};base64,{base64_image}",
-            })
-
-        kwargs = {
-            "model": model,
-            "input": [{"role": "user", "content": content}],
-            "timeout": 60, # Timeout for the submit request itself
-            "background": True,
-            "store": True,
-            "max_output_tokens": 120000,
-        }
-        if reasoning_effort != "none":
-            kwargs["reasoning"] = {"effort": reasoning_effort}
         
-        if last_failed_job_id:
-            kwargs["previous_response_id"] = last_failed_job_id
+        start_attempt_ts = time.perf_counter()
 
-        # 1. Submit Job
-        def _submit():
-            try:
-                return client.responses.create(**kwargs)
-            except Exception as e:
-                _map_exception(e)
-        
-        job = run_with_retry(lambda: _submit(), task_id=task_id, test_index=test_index, run_timestamp=run_timestamp, model_name=full_model_name, timing_tracker=timing_tracker)
-        job_id = job.id
-        if verbose:
-            print(f"[BACKGROUND] [{model}] Job submitted. ID: {job_id}")
+        try:
+            content = [{"type": "input_text", "text": p}]
+            if image_path:
+                with open(image_path, "rb") as image_file:
+                    base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+                mime_type, _ = mimetypes.guess_type(image_path)
+                if mime_type is None:
+                    mime_type = 'application/octet-stream'
+                content.append({
+                    "type": "input_image",
+                    "image_url": f"data:{mime_type};base64,{base64_image}",
+                })
 
-        # 2. Poll for Completion
-        max_wait_time = 10  # 10 seconds
-        start_time = time.time()
-        poll_interval_base = 2.0
-        last_log_time = time.time()
+            kwargs = {
+                "model": model,
+                "input": [{"role": "user", "content": content}],
+                "timeout": 60, # Timeout for the submit request itself
+                "background": True,
+                "store": True,
+                "max_output_tokens": 120000,
+            }
+            if reasoning_effort != "none":
+                kwargs["reasoning"] = {"effort": reasoning_effort}
+            
+            if last_failed_job_id:
+                kwargs["previous_response_id"] = last_failed_job_id
 
-        while True:
-            # Check Timeout
-            elapsed = time.time() - start_time
-            context_str = f"[{task_id}:{test_index}] ({step_name})" if task_id and step_name else ""
-            if elapsed > max_wait_time:
-                if reasoning_effort == "xhigh":
-                    logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} timed out after {max_wait_time}s. Falling back to Claude Opus...")
-                    
-                    if run_timestamp:
-                        log_failure(
-                            run_timestamp=run_timestamp,
-                            task_id=task_id if task_id else "UNKNOWN",
-                            run_id="OPENAI_BG_TIMEOUT",
-                            error=RetryableProviderError(f"OpenAI Job {job_id} timed out. Falling back to Claude Opus..."),
-                            model=f"{model}-{reasoning_effort}",
-                            step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
-                            test_index=test_index,
-                            is_retryable=True
-                        )
-
-                    if not anthropic_client:
-                        raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
-                    
-                    fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 60000)
-                    response = call_anthropic(
-                        anthropic_client,
-                        prompt,
-                        fallback_config,
-                        image_path=image_path,
-                        return_strategy=False,
-                        verbose=verbose,
-                        task_id=task_id,
-                        test_index=test_index,
-                        run_timestamp=run_timestamp,
-                        timing_tracker=timing_tracker
-                    )
-                    response.model_name = "claude-opus-4.5-thinking-60000"
-                    return response
-
-                elif reasoning_effort == "low":
-                    logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} (low) timed out after {max_wait_time}s. Falling back to Claude Opus (no-thinking)...")
-                    
-                    if run_timestamp:
-                        log_failure(
-                            run_timestamp=run_timestamp,
-                            task_id=task_id if task_id else "UNKNOWN",
-                            run_id="OPENAI_BG_TIMEOUT",
-                            error=RetryableProviderError(f"OpenAI Job {job_id} timed out. Falling back to Claude Opus..."),
-                            model=f"{model}-{reasoning_effort}",
-                            step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
-                            test_index=test_index,
-                            is_retryable=True
-                        )
-
-                    if not anthropic_client:
-                        raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
-                    
-                    fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 0)
-                    response = call_anthropic(
-                        anthropic_client,
-                        prompt,
-                        fallback_config,
-                        image_path=image_path,
-                        return_strategy=False,
-                        verbose=verbose,
-                        task_id=task_id,
-                        test_index=test_index,
-                        run_timestamp=run_timestamp,
-                        timing_tracker=timing_tracker
-                    )
-                    response.model_name = "claude-opus-4.5-no-thinking"
-                    return response
-                
-                if is_downgraded_retry:
-                    raise NonRetryableProviderError(f"OpenAI Background Job {job_id} timed out after {max_wait_time}s (Downgraded Retry Failed)")
-
-                raise RetryableProviderError(f"OpenAI Background Job {job_id} timed out after {max_wait_time}s")
-
-            # Logging every ~30s
-            if verbose and (time.time() - last_log_time > 30):
-                print(f"[BACKGROUND] [{model}] Job {job_id} still processing... ({int(elapsed)}s elapsed)")
-                last_log_time = time.time()
-
-            # Retrieve Status
-            def _retrieve():
+            # 1. Submit Job
+            def _submit():
                 try:
-                    return client.responses.retrieve(job_id)
+                    return client.responses.create(**kwargs)
                 except Exception as e:
                     _map_exception(e)
-
-            job = run_with_retry(lambda: _retrieve(), task_id=task_id, test_index=test_index, run_timestamp=run_timestamp, model_name=full_model_name, timing_tracker=timing_tracker)
-
-            if job.status in ("queued", "in_progress"):
-                # Sleep with jitter
-                sleep_time = poll_interval_base + random.uniform(0, 1.0)
-                time.sleep(sleep_time)
-                continue
             
-            # Terminal States
-            if job.status == "completed":
-                text_output = ""
-                # Try to use convenience field first
-                if hasattr(job, "output_text") and job.output_text:
-                    text_output = job.output_text
-                # Fallback to manual extraction if needed
-                elif hasattr(job, "output"):
-                     for item in job.output:
-                        if item.type == "message":
-                            for content_part in item.content:
-                                if content_part.type == "output_text":
-                                    text_output += content_part.text
+            job = run_with_retry(lambda: _submit(), task_id=task_id, test_index=test_index, run_timestamp=run_timestamp, model_name=full_model_name)
+            job_id = job.id
+            if verbose:
+                print(f"[BACKGROUND] [{model}] Job submitted. ID: {job_id}")
+
+            # 2. Poll for Completion
+            max_wait_time = 10  # 10 seconds
+            start_time = time.time()
+            poll_interval_base = 2.0
+            last_log_time = time.time()
+
+            while True:
+                # Check Timeout
+                elapsed = time.time() - start_time
+                context_str = f"[{task_id}:{test_index}] ({step_name})" if task_id and step_name else ""
+                if elapsed > max_wait_time:
+                    if reasoning_effort == "xhigh":
+                        logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} timed out after {max_wait_time}s. Falling back to Claude Opus...")
+                        
+                        if run_timestamp:
+                            log_failure(
+                                run_timestamp=run_timestamp,
+                                task_id=task_id if task_id else "UNKNOWN",
+                                run_id="OPENAI_BG_TIMEOUT",
+                                error=RetryableProviderError(f"OpenAI Job {job_id} timed out. Falling back to Claude Opus..."),
+                                model=f"{model}-{reasoning_effort}",
+                                step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
+                                test_index=test_index,
+                                is_retryable=True
+                            )
+
+                        if not anthropic_client:
+                            raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
+                        
+                        duration = time.perf_counter() - start_attempt_ts
+                        if timing_tracker is not None:
+                            timing_tracker.append({
+                                "type": "attempt",
+                                "model": full_model_name,
+                                "duration": duration,
+                                "status": "failed",
+                                "error": f"Timeout after {max_wait_time}s. Falling back."
+                            })
+
+                        fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 60000)
+                        response = call_anthropic(
+                            anthropic_client,
+                            prompt,
+                            fallback_config,
+                            image_path=image_path,
+                            return_strategy=False,
+                            verbose=verbose,
+                            task_id=task_id,
+                            test_index=test_index,
+                            run_timestamp=run_timestamp,
+                            timing_tracker=timing_tracker
+                        )
+                        response.model_name = "claude-opus-4.5-thinking-60000"
+                        return response
+
+                    elif reasoning_effort == "low":
+                        logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} (low) timed out after {max_wait_time}s. Falling back to Claude Opus (no-thinking)...")
+                        
+                        if run_timestamp:
+                            log_failure(
+                                run_timestamp=run_timestamp,
+                                task_id=task_id if task_id else "UNKNOWN",
+                                run_id="OPENAI_BG_TIMEOUT",
+                                error=RetryableProviderError(f"OpenAI Job {job_id} timed out. Falling back to Claude Opus..."),
+                                model=f"{model}-{reasoning_effort}",
+                                step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
+                                test_index=test_index,
+                                is_retryable=True
+                            )
+
+                        if not anthropic_client:
+                            raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
+                        
+                        duration = time.perf_counter() - start_attempt_ts
+                        if timing_tracker is not None:
+                            timing_tracker.append({
+                                "type": "attempt",
+                                "model": full_model_name,
+                                "duration": duration,
+                                "status": "failed",
+                                "error": f"Timeout after {max_wait_time}s. Falling back."
+                            })
+
+                        fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 0)
+                        response = call_anthropic(
+                            anthropic_client,
+                            prompt,
+                            fallback_config,
+                            image_path=image_path,
+                            return_strategy=False,
+                            verbose=verbose,
+                            task_id=task_id,
+                            test_index=test_index,
+                            run_timestamp=run_timestamp,
+                            timing_tracker=timing_tracker
+                        )
+                        response.model_name = "claude-opus-4.5-no-thinking"
+                        return response
+                    
+                    if is_downgraded_retry:
+                        raise NonRetryableProviderError(f"OpenAI Background Job {job_id} timed out after {max_wait_time}s (Downgraded Retry Failed)")
+
+                    raise RetryableProviderError(f"OpenAI Background Job {job_id} timed out after {max_wait_time}s")
+
+                # Logging every ~30s
+                if verbose and (time.time() - last_log_time > 30):
+                    print(f"[BACKGROUND] [{model}] Job {job_id} still processing... ({int(elapsed)}s elapsed)")
+                    last_log_time = time.time()
+
+                # Retrieve Status
+                def _retrieve():
+                    try:
+                        return client.responses.retrieve(job_id)
+                    except Exception as e:
+                        _map_exception(e)
+
+                job = run_with_retry(lambda: _retrieve(), task_id=task_id, test_index=test_index, run_timestamp=run_timestamp, model_name=full_model_name)
+
+                if job.status in ("queued", "in_progress"):
+                    # Sleep with jitter
+                    sleep_time = poll_interval_base + random.uniform(0, 1.0)
+                    time.sleep(sleep_time)
+                    continue
                 
-                usage = getattr(job, "usage", None)
-                return ModelResponse(
-                    text=text_output,
-                    prompt_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
-                    cached_tokens=0,
-                    completion_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
-                    strategy=None
-                )
-            
-            elif job.status == "failed":
-                err_msg = f"Code: {job.error.code}, Message: {job.error.message}" if job.error else "Unknown error"
-                raise RetryableProviderError(f"OpenAI Background Job {job_id} FAILED: {err_msg}")
-            
-            elif job.status in ("cancelled", "incomplete"):
-                 reason = getattr(job, 'incomplete_details', 'Unknown')
-                 reason_str = str(reason)
-                 if "max_output_tokens" in reason_str or "token_limit" in reason_str:
-                     context_str = f"[{task_id}:{test_index}] ({step_name})" if task_id and step_name else ""
-                     if reasoning_effort == "xhigh":
-                         logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus...")
-                         
-                         if run_timestamp:
-                             log_failure(
-                                run_timestamp=run_timestamp,
-                                task_id=task_id if task_id else "UNKNOWN",
-                                run_id="OPENAI_BG_TOKEN_LIMIT",
-                                error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus..."),
-                                model=f"{model}-{reasoning_effort}",
-                                step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
+                # Terminal States
+                if job.status == "completed":
+                    text_output = ""
+                    # Try to use convenience field first
+                    if hasattr(job, "output_text") and job.output_text:
+                        text_output = job.output_text
+                    # Fallback to manual extraction if needed
+                    elif hasattr(job, "output"):
+                        for item in job.output:
+                            if item.type == "message":
+                                for content_part in item.content:
+                                    if content_part.type == "output_text":
+                                        text_output += content_part.text
+                    
+                    usage = getattr(job, "usage", None)
+                    
+                    duration = time.perf_counter() - start_attempt_ts
+                    if timing_tracker is not None:
+                        timing_tracker.append({
+                            "type": "attempt",
+                            "model": full_model_name,
+                            "duration": duration,
+                            "status": "success"
+                        })
+
+                    return ModelResponse(
+                        text=text_output,
+                        prompt_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
+                        cached_tokens=0,
+                        completion_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
+                        strategy=None
+                    )
+                
+                elif job.status == "failed":
+                    err_msg = f"Code: {job.error.code}, Message: {job.error.message}" if job.error else "Unknown error"
+                    raise RetryableProviderError(f"OpenAI Background Job {job_id} FAILED: {err_msg}")
+                
+                elif job.status in ("cancelled", "incomplete"):
+                    reason = getattr(job, 'incomplete_details', 'Unknown')
+                    reason_str = str(reason)
+                    if "max_output_tokens" in reason_str or "token_limit" in reason_str:
+                        context_str = f"[{task_id}:{test_index}] ({step_name})" if task_id and step_name else ""
+                        if reasoning_effort == "xhigh":
+                            logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus...")
+                            
+                            if run_timestamp:
+                                log_failure(
+                                    run_timestamp=run_timestamp,
+                                    task_id=task_id if task_id else "UNKNOWN",
+                                    run_id="OPENAI_BG_TOKEN_LIMIT",
+                                    error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus..."),
+                                    model=f"{model}-{reasoning_effort}",
+                                    step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
+                                    test_index=test_index,
+                                    is_retryable=True
+                                )
+
+                            if not anthropic_client:
+                                raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
+
+                            duration = time.perf_counter() - start_attempt_ts
+                            if timing_tracker is not None:
+                                timing_tracker.append({
+                                    "type": "attempt",
+                                    "model": full_model_name,
+                                    "duration": duration,
+                                    "status": "failed",
+                                    "error": f"Token limit: {reason}. Falling back."
+                                })
+
+                            fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 60000)
+                            response = call_anthropic(
+                                anthropic_client,
+                                prompt,
+                                fallback_config,
+                                image_path=image_path,
+                                return_strategy=False,
+                                verbose=verbose,
+                                task_id=task_id,
                                 test_index=test_index,
-                                is_retryable=True
-                             )
-
-                         if not anthropic_client:
-                             raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
-
-                         fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 60000)
-                         response = call_anthropic(
-                             anthropic_client,
-                             prompt,
-                             fallback_config,
-                             image_path=image_path,
-                             return_strategy=False,
-                             verbose=verbose,
-                             task_id=task_id,
-                             test_index=test_index,
-                             run_timestamp=run_timestamp,
-                             timing_tracker=timing_tracker
-                         )
-                         response.model_name = "claude-opus-4.5-thinking-60000"
-                         return response
-
-                     elif reasoning_effort == "low":
-                         logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus (no-thinking)...")
-                         
-                         if run_timestamp:
-                             log_failure(
                                 run_timestamp=run_timestamp,
-                                task_id=task_id if task_id else "UNKNOWN",
-                                run_id="OPENAI_BG_TOKEN_LIMIT",
-                                error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus..."),
-                                model=f"{model}-{reasoning_effort}",
-                                step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
+                                timing_tracker=timing_tracker
+                            )
+                            response.model_name = "claude-opus-4.5-thinking-60000"
+                            return response
+
+                        elif reasoning_effort == "low":
+                            logger.warning(f"[BACKGROUND] {context_str} OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus (no-thinking)...")
+                            
+                            if run_timestamp:
+                                log_failure(
+                                    run_timestamp=run_timestamp,
+                                    task_id=task_id if task_id else "UNKNOWN",
+                                    run_id="OPENAI_BG_TOKEN_LIMIT",
+                                    error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus..."),
+                                    model=f"{model}-{reasoning_effort}",
+                                    step=step_name if step_name else (task_id if task_id else "UNKNOWN"),
+                                    test_index=test_index,
+                                    is_retryable=True
+                                )
+
+                            if not anthropic_client:
+                                raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
+
+                            duration = time.perf_counter() - start_attempt_ts
+                            if timing_tracker is not None:
+                                timing_tracker.append({
+                                    "type": "attempt",
+                                    "model": full_model_name,
+                                    "duration": duration,
+                                    "status": "failed",
+                                    "error": f"Token limit: {reason}. Falling back."
+                                })
+
+                            fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 0)
+                            response = call_anthropic(
+                                anthropic_client,
+                                prompt,
+                                fallback_config,
+                                image_path=image_path,
+                                return_strategy=False,
+                                verbose=verbose,
+                                task_id=task_id,
                                 test_index=test_index,
-                                is_retryable=True
-                             )
+                                run_timestamp=run_timestamp,
+                                timing_tracker=timing_tracker
+                            )
+                            response.model_name = "claude-opus-4.5-no-thinking"
+                            return response
+                    
+                    raise NonRetryableProviderError(f"OpenAI Background Job {job_id} ended with status={job.status}, reason={reason}")
+                
+                else:
+                    raise UnknownProviderError(f"OpenAI Background Job {job_id} ended in unexpected status={job.status}")
 
-                         if not anthropic_client:
-                             raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
-
-                         fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 0)
-                         response = call_anthropic(
-                             anthropic_client,
-                             prompt,
-                             fallback_config,
-                             image_path=image_path,
-                             return_strategy=False,
-                             verbose=verbose,
-                             task_id=task_id,
-                             test_index=test_index,
-                             run_timestamp=run_timestamp,
-                             timing_tracker=timing_tracker
-                         )
-                         response.model_name = "claude-opus-4.5-no-thinking"
-                         return response
-                 
-                 raise NonRetryableProviderError(f"OpenAI Background Job {job_id} ended with status={job.status}, reason={reason}")
-            
-            else:
-                raise UnknownProviderError(f"OpenAI Background Job {job_id} ended in unexpected status={job.status}")
+        except Exception as e:
+            duration = time.perf_counter() - start_attempt_ts
+            if timing_tracker is not None:
+                timing_tracker.append({
+                    "type": "attempt",
+                    "model": full_model_name,
+                    "duration": duration,
+                    "status": "failed",
+                    "error": str(e)
+                })
+            raise e
 
     def _solve(p: str) -> ModelResponse:
         content = [{"type": "input_text", "text": p}]
@@ -458,8 +523,7 @@ def call_openai_internal(
             task_id=task_id,
             test_index=test_index,
             run_timestamp=run_timestamp,
-            model_name=full_model_name,
-            timing_tracker=timing_tracker
+            model_name=full_model_name
         )
 
     return orchestrate_two_stage(_solve, _explain, prompt, return_strategy, verbose, image_path)
