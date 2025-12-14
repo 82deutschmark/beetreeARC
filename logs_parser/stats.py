@@ -96,6 +96,7 @@ def calculate_model_stats(task_data):
                         "total_calls": 0,
                         "passes": 0,
                         "zero_duration_calls": 0,
+                        "failed_grid_extractions": 0,
                         "durations": [], 
                         "costs": [],
                         "input_tokens": [],
@@ -111,6 +112,9 @@ def calculate_model_stats(task_data):
                     if status == "PASS":
                         model_stats[model_name]["passes"] += 1
                 
+                if call.get("extracted_grid_failed") is True:
+                     model_stats[model_name]["failed_grid_extractions"] += 1
+
                 # Collect valid durations and count zero durations
                 duration = call.get("duration")
                 if isinstance(duration, (int, float)):

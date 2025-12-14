@@ -85,3 +85,16 @@ def print_zero_duration_stats(model_stats, max_model_len, sorted_models):
         zero_count = stats.get("zero_duration_calls", 0)
         
         print(f"{m:<{max_model_len}}  {zero_count}")
+
+def print_failed_grid_stats(model_stats, max_model_len, sorted_models):
+    print("\n" + "-" * 80)
+    print("Failed Grid Extractions")
+    print("-" * 80)
+    
+    print(f"{ 'Model':<{max_model_len}}  {'Count'}")
+    
+    for m in sorted_models:
+        stats = model_stats[m]
+        fail_count = stats.get("failed_grid_extractions", 0)
+        
+        print(f"{m:<{max_model_len}}  {fail_count}")
