@@ -372,15 +372,6 @@ def call_openai_internal(
                     raise UnknownProviderError(f"OpenAI Background Job {job_id} ended in unexpected status={job.status}")
 
         except Exception as e:
-            duration = time.perf_counter() - start_attempt_ts
-            if timing_tracker is not None:
-                timing_tracker.append({
-                    "type": "attempt",
-                    "model": full_model_name,
-                    "duration": duration,
-                    "status": "failed",
-                    "error": str(e)
-                })
             raise e
 
     def _solve(p: str) -> ModelResponse:
