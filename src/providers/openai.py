@@ -147,6 +147,39 @@ def call_openai_internal(
                     )
                     response.model_name = "claude-opus-4.5-thinking-60000"
                     return response
+
+                elif reasoning_effort == "low":
+                    logger.warning(f"[BACKGROUND] OpenAI Job {job_id} (low) timed out after {max_wait_time}s. Falling back to Claude Opus (no-thinking)...")
+                    
+                    if run_timestamp:
+                        log_failure(
+                            run_timestamp=run_timestamp,
+                            task_id=task_id if task_id else "UNKNOWN",
+                            run_id="OPENAI_BG_TIMEOUT",
+                            error=RetryableProviderError(f"OpenAI Job {job_id} timed out"),
+                            model=model,
+                            step="solve_background_fallback",
+                            test_index=test_index,
+                            is_retryable=True
+                        )
+
+                    if not anthropic_client:
+                        raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
+                    
+                    fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 0)
+                    response = call_anthropic(
+                        anthropic_client,
+                        prompt,
+                        fallback_config,
+                        image_path=image_path,
+                        return_strategy=False,
+                        verbose=verbose,
+                        task_id=task_id,
+                        test_index=test_index,
+                        run_timestamp=run_timestamp
+                    )
+                    response.model_name = "claude-opus-4.5-no-thinking"
+                    return response
                 
                 if is_downgraded_retry:
                     raise NonRetryableProviderError(f"OpenAI Background Job {job_id} timed out after {max_wait_time}s (Downgraded Retry Failed)")
@@ -235,6 +268,39 @@ def call_openai_internal(
                              run_timestamp=run_timestamp
                          )
                          response.model_name = "claude-opus-4.5-thinking-60000"
+                         return response
+
+                     elif reasoning_effort == "low":
+                         logger.warning(f"[BACKGROUND] OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus (no-thinking)...")
+                         
+                         if run_timestamp:
+                             log_failure(
+                                run_timestamp=run_timestamp,
+                                task_id=task_id if task_id else "UNKNOWN",
+                                run_id="OPENAI_BG_TOKEN_LIMIT",
+                                error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}"),
+                                model=model,
+                                step="solve_background_fallback",
+                                test_index=test_index,
+                                is_retryable=True
+                             )
+
+                         if not anthropic_client:
+                             raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
+
+                         fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 0)
+                         response = call_anthropic(
+                             anthropic_client,
+                             prompt,
+                             fallback_config,
+                             image_path=image_path,
+                             return_strategy=False,
+                             verbose=verbose,
+                             task_id=task_id,
+                             test_index=test_index,
+                             run_timestamp=run_timestamp
+                         )
+                         response.model_name = "claude-opus-4.5-no-thinking"
                          return response
                      
                      if is_downgraded_retry:
