@@ -72,7 +72,7 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
     logic_data = { "prompt": full_prompt_logic, "response": None, "parsed": None }
     cons_data = { "prompt": full_prompt_cons, "response": None, "parsed": None }
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=20) as executor:
         future_logic = executor.submit(run_judge, "Logic", full_prompt_logic, judge_model, openai_client, anthropic_client, google_keys, logic_data, verbose, openai_background)
         
         future_cons = None

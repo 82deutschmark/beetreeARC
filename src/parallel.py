@@ -180,7 +180,7 @@ def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test
             print(f"DEBUG: Task {run_id} waited in queue for {start_wait:.2f}s")
         return run_single_model(*args, **kwargs)
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=20) as executor:
         
         # Generate unique run IDs
         run_list = []
