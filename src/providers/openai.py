@@ -28,12 +28,13 @@ def call_openai_internal(
     use_background: bool = False,
     run_timestamp: str = None,
     anthropic_client: Anthropic = None,
+    model_alias: str = None,
     timing_tracker: list[dict] = None,
 ) -> ModelResponse:
     
     model = config.base_model
     reasoning_effort = str(config.config) # Cast to string for safety
-    full_model_name = f"{model}-{reasoning_effort}"
+    full_model_name = model_alias if model_alias else f"{model}-{reasoning_effort}"
     last_failed_job_id = None
     is_downgraded_retry = False
 
@@ -161,6 +162,7 @@ def call_openai_internal(
                             task_id=task_id,
                             test_index=test_index,
                             run_timestamp=run_timestamp,
+                            model_alias="claude-opus-4.5-thinking-60000",
                             timing_tracker=timing_tracker
                         )
                         response.model_name = "claude-opus-4.5-thinking-60000"
@@ -205,6 +207,7 @@ def call_openai_internal(
                             task_id=task_id,
                             test_index=test_index,
                             run_timestamp=run_timestamp,
+                            model_alias="claude-opus-4.5-no-thinking",
                             timing_tracker=timing_tracker
                         )
                         response.model_name = "claude-opus-4.5-no-thinking"
@@ -316,6 +319,7 @@ def call_openai_internal(
                                 task_id=task_id,
                                 test_index=test_index,
                                 run_timestamp=run_timestamp,
+                                model_alias="claude-opus-4.5-thinking-60000",
                                 timing_tracker=timing_tracker
                             )
                             response.model_name = "claude-opus-4.5-thinking-60000"
@@ -360,6 +364,7 @@ def call_openai_internal(
                                 task_id=task_id,
                                 test_index=test_index,
                                 run_timestamp=run_timestamp,
+                                model_alias="claude-opus-4.5-no-thinking",
                                 timing_tracker=timing_tracker
                             )
                             response.model_name = "claude-opus-4.5-no-thinking"
