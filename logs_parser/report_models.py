@@ -98,3 +98,16 @@ def print_failed_grid_stats(model_stats, max_model_len, sorted_models):
         fail_count = stats.get("failed_grid_extractions", 0)
         
         print(f"{m:<{max_model_len}}  {fail_count}")
+
+def print_bad_grid_stats(model_stats, max_model_len, sorted_models):
+    print("\n" + "-" * 80)
+    print("Bad Grids (1xN or Nx1)")
+    print("-" * 80)
+    
+    print(f"{ 'Model':<{max_model_len}}  {'Count'}")
+    
+    for m in sorted_models:
+        stats = model_stats[m]
+        bad_count = stats.get("bad_grid_count", 0)
+        
+        print(f"{m:<{max_model_len}}  {bad_count}")

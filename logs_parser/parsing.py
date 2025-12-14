@@ -37,8 +37,19 @@ def create_call_info(name, data, task_id, test_id, answers, generator=None):
             status_str = "FAIL"
             
     extracted_grid_failed = False
-    if isinstance(data, dict) and "Extracted grid" in data and data["Extracted grid"] is None:
-        extracted_grid_failed = True
+    bad_grid = False
+    if isinstance(data, dict) and "Extracted grid" in data:
+        extracted = data["Extracted grid"]
+        if extracted is None:
+            extracted_grid_failed = True
+        elif isinstance(extracted, list):
+             height = len(extracted)
+             width = 0
+             if height > 0 and isinstance(extracted[0], list):
+                 width = len(extracted[0])
+             
+             if height == 1 or width == 1:
+                 bad_grid = True
 
     return {
         "name": name,
@@ -49,7 +60,8 @@ def create_call_info(name, data, task_id, test_id, answers, generator=None):
         "cached_tokens": cached_tokens,
         "status": status_str,
         "generator": generator,
-        "extracted_grid_failed": extracted_grid_failed
+        "extracted_grid_failed": extracted_grid_failed,
+        "bad_grid": bad_grid
     }
 
 def parse_finish_step(content):
