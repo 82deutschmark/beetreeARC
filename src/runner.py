@@ -42,6 +42,7 @@ def run_app(
     solver_testing=False,
     openai_background=True,
     enable_step_3_and_4=False,
+    judge_consistency_enable=False,
 ):
     # Construct args namespace to pass around internally as many legacy functions expect it
     args = SimpleNamespace(
@@ -71,7 +72,8 @@ def run_app(
         solver=solver,
         solver_testing=solver_testing,
         openai_background=openai_background,
-        enable_step_3_and_4=enable_step_3_and_4
+        enable_step_3_and_4=enable_step_3_and_4,
+        judge_consistency_enable=judge_consistency_enable
     )
 
     if os.getenv("ARC_AGI_INSECURE_SSL", "").lower() == "true":
