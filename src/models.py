@@ -122,6 +122,7 @@ def call_model(
             test_index=test_index,
             use_background=use_background,
             run_timestamp=run_timestamp,
+            anthropic_client=anthropic_client,
         )
     elif config.provider == "anthropic":
         if not anthropic_client:

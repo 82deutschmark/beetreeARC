@@ -5,11 +5,13 @@ from typing import Optional
 
 import openai
 from openai import OpenAI
+from anthropic import Anthropic
 
-from src.types import ModelConfig, ModelResponse
+from src.types import ModelConfig, ModelResponse, CLAUDE_OPUS_BASE
 from src.llm_utils import run_with_retry, orchestrate_two_stage
-from src.logging import get_logger
+from src.logging import get_logger, log_failure
 from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError
+from src.providers.anthropic import call_anthropic
 
 logger = get_logger("providers.openai")
 
@@ -24,6 +26,7 @@ def call_openai_internal(
     test_index: int = None,
     use_background: bool = False,
     run_timestamp: str = None,
+    anthropic_client: Anthropic = None,
 ) -> ModelResponse:
     
     model = config.base_model
@@ -103,7 +106,7 @@ def call_openai_internal(
             print(f"[BACKGROUND] [{model}] Job submitted. ID: {job_id}")
 
         # 2. Poll for Completion
-        max_wait_time = 7200  # 120 minutes
+        max_wait_time = 1800  # 30 minutes
         start_time = time.time()
         poll_interval_base = 2.0
         last_log_time = time.time()
@@ -113,11 +116,37 @@ def call_openai_internal(
             elapsed = time.time() - start_time
             if elapsed > max_wait_time:
                 if reasoning_effort == "xhigh":
-                    logger.warning(f"[BACKGROUND] Downgrading reasoning from xhigh to high due to Timeout (Job {job_id})")
-                    reasoning_effort = "high"
-                    last_failed_job_id = job_id
-                    is_downgraded_retry = True
-                    raise RetryableProviderError(f"OpenAI Background Job {job_id} timed out after {max_wait_time}s")
+                    logger.warning(f"[BACKGROUND] OpenAI Job {job_id} timed out after {max_wait_time}s. Falling back to Claude Opus...")
+                    
+                    if run_timestamp:
+                        log_failure(
+                            run_timestamp=run_timestamp,
+                            task_id=task_id if task_id else "UNKNOWN",
+                            run_id="OPENAI_BG_TIMEOUT",
+                            error=RetryableProviderError(f"OpenAI Job {job_id} timed out"),
+                            model=model,
+                            step="solve_background_fallback",
+                            test_index=test_index,
+                            is_retryable=True
+                        )
+
+                    if not anthropic_client:
+                        raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
+                    
+                    fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 60000)
+                    response = call_anthropic(
+                        anthropic_client,
+                        prompt,
+                        fallback_config,
+                        image_path=image_path,
+                        return_strategy=False,
+                        verbose=verbose,
+                        task_id=task_id,
+                        test_index=test_index,
+                        run_timestamp=run_timestamp
+                    )
+                    response.model_name = "claude-opus-4.5-thinking-60000"
+                    return response
                 
                 if is_downgraded_retry:
                     raise NonRetryableProviderError(f"OpenAI Background Job {job_id} timed out after {max_wait_time}s (Downgraded Retry Failed)")
@@ -176,11 +205,37 @@ def call_openai_internal(
                  reason_str = str(reason)
                  if "max_output_tokens" in reason_str or "token_limit" in reason_str:
                      if reasoning_effort == "xhigh":
-                         logger.warning(f"[BACKGROUND] Downgrading reasoning from xhigh to high due to Token Limit (Job {job_id})")
-                         reasoning_effort = "high"
-                         last_failed_job_id = job_id
-                         is_downgraded_retry = True
-                         raise RetryableProviderError(f"OpenAI Background Job {job_id} hit token limit: {reason}")
+                         logger.warning(f"[BACKGROUND] OpenAI Job {job_id} hit token limit: {reason}. Falling back to Claude Opus...")
+                         
+                         if run_timestamp:
+                             log_failure(
+                                run_timestamp=run_timestamp,
+                                task_id=task_id if task_id else "UNKNOWN",
+                                run_id="OPENAI_BG_TOKEN_LIMIT",
+                                error=RetryableProviderError(f"OpenAI Job {job_id} hit token limit: {reason}"),
+                                model=model,
+                                step="solve_background_fallback",
+                                test_index=test_index,
+                                is_retryable=True
+                             )
+
+                         if not anthropic_client:
+                             raise NonRetryableProviderError("Fallback to Claude Opus required but anthropic_client is missing.")
+
+                         fallback_config = ModelConfig("anthropic", CLAUDE_OPUS_BASE, 60000)
+                         response = call_anthropic(
+                             anthropic_client,
+                             prompt,
+                             fallback_config,
+                             image_path=image_path,
+                             return_strategy=False,
+                             verbose=verbose,
+                             task_id=task_id,
+                             test_index=test_index,
+                             run_timestamp=run_timestamp
+                         )
+                         response.model_name = "claude-opus-4.5-thinking-60000"
+                         return response
                      
                      if is_downgraded_retry:
                          raise NonRetryableProviderError(f"OpenAI Background Job {job_id} hit token limit after downgrade: {reason}")

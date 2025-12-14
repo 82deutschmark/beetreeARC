@@ -104,6 +104,12 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
         output_tokens = response.completion_tokens
         cached_tokens = response.cached_tokens
         
+        # Handle model fallback (e.g., OpenAI -> Opus)
+        if response.model_name and response.model_name != model_name:
+            if verbose:
+                print(f"{prefix} Model fallback occurred: {model_name} -> {response.model_name}")
+            model_name = response.model_name
+        
         try:
             model_config = parse_model_arg(model_name)
             cost = calculate_cost(model_config, response)

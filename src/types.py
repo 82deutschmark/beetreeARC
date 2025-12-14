@@ -75,6 +75,7 @@ class ModelResponse:
     cached_tokens: int
     completion_tokens: int
     strategy: Optional[str] = None
+    model_name: Optional[str] = None
 
 @dataclass
 class ModelConfig:
