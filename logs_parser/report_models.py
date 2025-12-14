@@ -87,27 +87,31 @@ def print_zero_duration_stats(model_stats, max_model_len, sorted_models):
         print(f"{m:<{max_model_len}}  {zero_count}")
 
 def print_failed_grid_stats(model_stats, max_model_len, sorted_models):
-    print("\n" + "-" * 80)
+    print("\n" + "-" * 120)
     print("Failed Grid Extractions")
-    print("-" * 80)
+    print("-" * 120)
     
-    print(f"{ 'Model':<{max_model_len}}  {'Count'}")
+    print(f"{ 'Model':<{max_model_len}}  {'Count':<6}  {'Examples (First 5)'}")
     
     for m in sorted_models:
         stats = model_stats[m]
         fail_count = stats.get("failed_grid_extractions", 0)
+        examples = stats.get("failed_grid_examples", [])[:5]
+        ex_str = ", ".join(examples)
         
-        print(f"{m:<{max_model_len}}  {fail_count}")
+        print(f"{m:<{max_model_len}}  {fail_count:<6}  {ex_str}")
 
 def print_bad_grid_stats(model_stats, max_model_len, sorted_models):
-    print("\n" + "-" * 80)
+    print("\n" + "-" * 120)
     print("Bad Grids (1xN or Nx1)")
-    print("-" * 80)
+    print("-" * 120)
     
-    print(f"{ 'Model':<{max_model_len}}  {'Count'}")
+    print(f"{ 'Model':<{max_model_len}}  {'Count':<6}  {'Examples (First 5)'}")
     
     for m in sorted_models:
         stats = model_stats[m]
         bad_count = stats.get("bad_grid_count", 0)
+        examples = stats.get("bad_grid_examples", [])[:5]
+        ex_str = ", ".join(examples)
         
-        print(f"{m:<{max_model_len}}  {bad_count}")
+        print(f"{m:<{max_model_len}}  {bad_count:<6}  {ex_str}")

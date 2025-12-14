@@ -98,6 +98,8 @@ def calculate_model_stats(task_data):
                         "zero_duration_calls": 0,
                         "failed_grid_extractions": 0,
                         "bad_grid_count": 0,
+                        "failed_grid_examples": [],
+                        "bad_grid_examples": [],
                         "durations": [], 
                         "costs": [],
                         "input_tokens": [],
@@ -115,9 +117,11 @@ def calculate_model_stats(task_data):
                 
                 if call.get("extracted_grid_failed") is True:
                      model_stats[model_name]["failed_grid_extractions"] += 1
+                     model_stats[model_name]["failed_grid_examples"].append(raw_name)
                 
                 if call.get("bad_grid") is True:
                      model_stats[model_name]["bad_grid_count"] += 1
+                     model_stats[model_name]["bad_grid_examples"].append(raw_name)
 
                 # Collect valid durations and count zero durations
                 duration = call.get("duration")
