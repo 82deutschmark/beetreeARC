@@ -29,6 +29,7 @@ def run_objects_pipeline_variant(state, generator_model_extract, generator_model
         "input_tokens": res_A.get("input_tokens", 0),
         "output_tokens": res_A.get("output_tokens", 0),
         "cached_tokens": res_A.get("cached_tokens", 0),
+        "timing_breakdown": res_A.get("timing_breakdown"),
     }
 
     # Phase B: Transformation
@@ -54,6 +55,7 @@ def run_objects_pipeline_variant(state, generator_model_extract, generator_model
         "input_tokens": res_B.get("input_tokens", 0),
         "output_tokens": res_B.get("output_tokens", 0),
         "cached_tokens": res_B.get("cached_tokens", 0),
+        "timing_breakdown": res_B.get("timing_breakdown"),
     }
 
     # Phase C: Solution
