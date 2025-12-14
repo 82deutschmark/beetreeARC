@@ -28,11 +28,6 @@ def call_openai_internal(
     use_background: bool = False,
     run_timestamp: str = None,
     anthropic_client: Anthropic = None,
-) -> ModelResponse:
-    
-    use_background: bool = False,
-    run_timestamp: str = None,
-    anthropic_client: Anthropic = None,
     timing_tracker: list[dict] = None,
 ) -> ModelResponse:
     
