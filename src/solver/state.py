@@ -71,6 +71,8 @@ class SolverState:
                 step_log[run_key] = {
                     "duration_seconds": round(res.get("duration", 0), 2),
                     "total_cost": res.get("cost", 0),
+                    "requested_model": res.get("requested_model"),
+                    "actual_model": res.get("model"),
                     "input_tokens": res.get("input_tokens", 0),
                     "output_tokens": res.get("output_tokens", 0),
                     "cached_tokens": res.get("cached_tokens", 0),
