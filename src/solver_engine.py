@@ -6,7 +6,7 @@ from src.solver.state import SolverState
 from src.solver.steps import run_step_1, run_step_3, run_step_5, check_is_solved
 
 # Re-export run_solver_mode for backward compatibility if imported elsewhere
-def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None, answer_path: Path = None, step_5_only: bool = False, objects_only: bool = False, force_step_5: bool = False, force_step_2: bool = False, judge_model: str = "gemini-3-high", old_pick_solution: bool = False, task_status=None, openai_background: bool = True):
+def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None, answer_path: Path = None, step_5_only: bool = False, objects_only: bool = False, force_step_5: bool = False, force_step_2: bool = False, judge_model: str = "gemini-3-high", old_pick_solution: bool = False, task_status=None, openai_background: bool = True, enable_step_3_and_4: bool = False):
     
     # Initialize State
     try:
@@ -42,14 +42,18 @@ def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: boo
             if finish:
                 return state.finalize("step_finish")
 
-            # STEP 3
-            run_step_3(state, models_step3)
+            if enable_step_3_and_4:
+                # STEP 3
+                run_step_3(state, models_step3)
 
-            # STEP 4
-            state.set_status(step=4)
-            finish, _ = check_is_solved(state, "step_4", continue_if_solved=force_step_5)
-            if finish:
-                return state.finalize("step_finish")
+                # STEP 4
+                state.set_status(step=4)
+                finish, _ = check_is_solved(state, "step_4", continue_if_solved=force_step_5)
+                if finish:
+                    return state.finalize("step_finish")
+            else:
+                if verbose >= 1:
+                    print("Skipping Steps 3-4 (Disabled by default)")
         else:
              print("\nSkipping Steps 1-4 (Deep Search Only Mode)")
 

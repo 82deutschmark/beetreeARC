@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--judge-model", type=str, default=None, help="Model to use for the auditing judges (Logic & Consistency).")
     parser.add_argument("--old-pick-solution", action="store_true", help="Use the legacy pick_solution() logic instead of the multi-judge pick_solution_v2().")
     parser.add_argument("--disable-openai-background", dest="openai_background", action="store_false", default=os.getenv("OPENAI_BACKGROUND", "true").lower() == "true", help="Disable OpenAI Background (Responses) API (Default: Enabled).")
+    parser.add_argument("--enable-step-3-and-4", action="store_true", help="Enable Steps 3 and 4 (Narrow Search and Extended Check) which are disabled by default.")
     parser.add_argument("--submissions-directory", type=str, default="submissions/", help="Directory to save submission files (default: submissions/).")
     parser.add_argument("--answers-directory", type=str, help="Optional directory containing answer files (with 'output' for test cases).")
 
