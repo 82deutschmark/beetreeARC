@@ -63,10 +63,9 @@ def run_step_5(state, models, hint_model, objects_only=False):
         unique_solvers = ["claude-opus-4.5-no-thinking"] + ["gpt-5.1-none"] * 3
     else:
         gen_object_extraction = "gemini-3-high"
-        gen_gpt = "gpt-5.2-xhigh"
         gen_opus = "claude-opus-4.5-thinking-60000"
         gen_transformation = "gpt-5.2-xhigh"
-        unique_solvers = ["claude-opus-4.5-thinking-60000", "gemini-3-high", "gemini-3-high", "gpt-5.2-xhigh", "gpt-5.2-xhigh"]
+        unique_solvers = ["gemini-3-high"] * 2 + ["claude-opus-4.5-thinking-60000"] * 1 + ["gpt-5.2-xhigh"] * 3
         
     # Counters setup
     n_models = len(models)
