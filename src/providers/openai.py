@@ -524,7 +524,9 @@ def call_openai_internal(
             task_id=task_id,
             test_index=test_index,
             run_timestamp=run_timestamp,
-            model_name=full_model_name
+            model_name=full_model_name,
+            timing_tracker=timing_tracker,
+            log_success=False
         )
 
     return orchestrate_two_stage(_solve, _explain, prompt, return_strategy, verbose, image_path)

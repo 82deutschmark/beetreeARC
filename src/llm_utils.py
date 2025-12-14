@@ -16,7 +16,8 @@ def run_with_retry(
     test_index: int = None,
     run_timestamp: str = None,
     model_name: str = None,
-    timing_tracker: list[dict] = None
+    timing_tracker: list[dict] = None,
+    log_success: bool = True
 ) -> Any:
     """
     Generic retry loop helper using RetryableProviderError.
@@ -39,7 +40,7 @@ def run_with_retry(
         try:
             result = func()
             duration = time.perf_counter() - start_ts
-            if timing_tracker is not None:
+            if log_success and timing_tracker is not None:
                 timing_tracker.append({
                     "type": "attempt",
                     "model": model_name,
