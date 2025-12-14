@@ -109,7 +109,7 @@ def call_openai_internal(
             print(f"[BACKGROUND] [{model}] Job submitted. ID: {job_id}")
 
         # 2. Poll for Completion
-        max_wait_time = 1200  # 20 minutes
+        max_wait_time = 30  # 30 seconds
         start_time = time.time()
         poll_interval_base = 2.0
         last_log_time = time.time()
