@@ -40,10 +40,11 @@ def set_rate_limit_scaling(factor: float):
     for name, limiter in LIMITERS.items():
         original_rate = limiter.rate
         new_rate = original_rate * factor
-        # Apply minimum floor of 1 request per minute to avoid divide by zero or effective hang
-        if new_rate < 1.0:
-            new_rate = 1.0
         
+        # Allow fractional rates (e.g. 0.04 RPM) for high worker counts
+        if new_rate < 1e-6:
+             new_rate = 1e-6 # Safety against zero
+
         limiter.rate = new_rate
         limiter.per_seconds = 60.0 / new_rate
 

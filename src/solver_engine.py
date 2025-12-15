@@ -24,9 +24,9 @@ def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: boo
             hint_generation_model = "gpt-5.1-low"
         else:
             # Models for --solver
-            models_step1 = ["gemini-3-high"] * 4 + ["claude-opus-4.5-thinking-60000"] * 2 + ["gpt-5.2-xhigh"] * 6
+            models_step1 = ["gemini-3-high"] * 2 + ["claude-opus-4.5-thinking-60000"] * 2 + ["gpt-5.2-xhigh"] * 6
             models_step3 = ["claude-opus-4.5-thinking-60000", "gemini-3-high", "gemini-3-high", "gpt-5.2-xhigh", "gpt-5.2-xhigh"]
-            models_step5 = ["gemini-3-high"] * 2 + ["claude-opus-4.5-thinking-60000"] * 1 + ["gpt-5.2-xhigh"] * 3
+            models_step5 = ["gemini-3-high"] * 1 + ["claude-opus-4.5-thinking-60000"] * 1 + ["gpt-5.2-xhigh"] * 3
             hint_generation_model = "gpt-5.2-xhigh"
 
         # Skip logic
