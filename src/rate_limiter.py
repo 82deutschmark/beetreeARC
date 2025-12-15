@@ -10,7 +10,8 @@ class RateLimiter:
     def __init__(self, rate: float, period: float = 60.0):
         self.rate = rate
         self.period = period
-        self.tokens = rate  # Start with full bucket
+        self.capacity = max(rate, 1.0) # Ensure we can hold at least 1 token
+        self.tokens = self.capacity  # Start with full bucket
         self.last_update = time.monotonic()
         self.lock = threading.Lock()
 
@@ -18,7 +19,7 @@ class RateLimiter:
         """Refills tokens based on time elapsed."""
         elapsed = now - self.last_update
         refill = elapsed * (self.rate / self.period)
-        self.tokens = min(self.rate, self.tokens + refill)
+        self.tokens = min(self.capacity, self.tokens + refill)
         self.last_update = now
 
     def acquire(self):
