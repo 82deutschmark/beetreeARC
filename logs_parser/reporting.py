@@ -11,7 +11,7 @@ except ImportError:
     from report_strategies import print_strategy_stats, print_methodology_stats
     from report_judges import print_judge_performance
 
-def print_full_report(task_data, model_stats, failure_count=0, max_token_failure_count=0, timeout_failure_count=0, other_failure_count=0, overlap_failure_count=0, timing_stats_v2=None, server_failure_count=0, error_403_failure_count=0):
+def print_full_report(task_data, model_stats, failure_count=0, max_token_failure_count=0, timeout_failure_count=0, other_failure_count=0, overlap_failure_count=0, timing_stats_v2=None, server_failure_count=0, error_403_failure_count=0, network_failure_count=0, rate_limit_failure_count=0, connection_failure_count=0, content_filter_failure_count=0):
     # Determine max name length for pretty printing
     max_name_len = 0
     for key in task_data:
@@ -100,6 +100,10 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
         print(f"{'Max Token Errors':<25} {max_token_failure_count}")
         print(f"{'Timeout Errors':<25} {timeout_failure_count}")
         print(f"{'Server Errors':<25} {server_failure_count}")
+        print(f"{'Network/503 Errors':<25} {network_failure_count}")
+        print(f"{'Rate Limit Errors (429)':<25} {rate_limit_failure_count}")
+        print(f"{'Connection Errors':<25} {connection_failure_count}")
+        print(f"{'Content Filter Errors':<25} {content_filter_failure_count}")
         print(f"{'Error Code 403':<25} {error_403_failure_count}")
         print(f"{'Other Errors':<25} {other_failure_count}")
         print(f"{'Overlapping Errors':<25} {overlap_failure_count}")

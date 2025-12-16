@@ -120,7 +120,8 @@ def calculate_model_stats(task_data):
                      model_stats[model_name]["failed_grid_extractions"] += 1
                      model_stats[model_name]["failed_grid_examples"].append(raw_name)
                 
-                if call.get("bad_grid") is True:
+                # Exclude task 7b5033c1 from bad grid counts as it expects a 1xN/Nx1 output
+                if call.get("bad_grid") is True and key[0] != "7b5033c1":
                      model_stats[model_name]["bad_grid_count"] += 1
                      model_stats[model_name]["bad_grid_examples"].append(raw_name)
 
@@ -188,6 +189,8 @@ def calculate_timing_stats_v2(task_data):
                         # Normalize error message
                         error_msg = re.sub(r"resp_[a-f0-9]+", "resp_ID", error_msg)
                         error_msg = re.sub(r"wfr_[a-f0-9]+", "wfr_ID", error_msg)
+                        error_msg = re.sub(r"Key #\d+", "Key #ID", error_msg)
+                        error_msg = re.sub(r"after \d+(\.\d+)? seconds", "after X seconds", error_msg)
                         
                         if "Code: server_error" in error_msg:
                             error_msg = "OpenAI server_error"

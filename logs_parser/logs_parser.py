@@ -98,6 +98,10 @@ def parse_logs(directory):
     timeout_failure_count = 0
     server_failure_count = 0
     error_403_failure_count = 0
+    rate_limit_failure_count = 0
+    network_failure_count = 0
+    connection_failure_count = 0
+    content_filter_failure_count = 0
     other_failure_count = 0
     overlap_failure_count = 0
 
@@ -113,9 +117,13 @@ def parse_logs(directory):
                                 error_msg = record.get("error_message", "")
                                 
                                 is_max_token = "max_output_tokens" in error_msg
-                                is_timeout = "timed out after 3600s" in error_msg or "timed out. Falling back" in error_msg
+                                is_timeout = "timed out after 3600s" in error_msg or "timed out. Falling back" in error_msg or "Timeout after 3600s" in error_msg
                                 is_server_error = "server_error" in error_msg
                                 is_403 = "Error code: 403" in error_msg
+                                is_429 = "Error code: 429" in error_msg or "rate_limit_exceeded" in error_msg or "RESOURCE_EXHAUSTED" in error_msg
+                                is_network = "Network/Protocol Error" in error_msg or "503 UNAVAILABLE" in error_msg
+                                is_connection = "Connection error" in error_msg
+                                is_content_filter = "content filtering policy" in error_msg or "Output blocked" in error_msg
                                 
                                 if is_max_token:
                                     max_token_failure_count += 1
@@ -125,10 +133,18 @@ def parse_logs(directory):
                                     server_failure_count += 1
                                 if is_403:
                                     error_403_failure_count += 1
+                                if is_429:
+                                    rate_limit_failure_count += 1
+                                if is_network:
+                                    network_failure_count += 1
+                                if is_connection:
+                                    connection_failure_count += 1
+                                if is_content_filter:
+                                    content_filter_failure_count += 1
                                 
                                 if is_max_token and is_timeout:
                                     overlap_failure_count += 1
-                                elif not (is_max_token or is_timeout or is_server_error or is_403):
+                                elif not (is_max_token or is_timeout or is_server_error or is_403 or is_429 or is_network or is_connection or is_content_filter):
                                     other_failure_count += 1
                                     
                             except json.JSONDecodeError:
@@ -138,7 +154,7 @@ def parse_logs(directory):
             break
 
     # Print Report
-    print_full_report(task_data, model_stats, failure_count, max_token_failure_count, timeout_failure_count, other_failure_count, overlap_failure_count, timing_stats_v2, server_failure_count, error_403_failure_count)
+    print_full_report(task_data, model_stats, failure_count, max_token_failure_count, timeout_failure_count, other_failure_count, overlap_failure_count, timing_stats_v2, server_failure_count, error_403_failure_count, network_failure_count, rate_limit_failure_count, connection_failure_count, content_filter_failure_count)
 
     print("\n--- Task Status Table ---")
     print("Task:Test,Status,Solved By")
