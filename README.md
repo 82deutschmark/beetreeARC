@@ -79,14 +79,13 @@ I've done a bunch of analysis to come to this algorithm that may be informative 
 
 ## Current performance
 
-I've added:
+The performance is: 70.7% on arc agi 2 eval dataset
+
+Full results here: https://www.kaggle.com/code/johanland/johan-land-solver-v6-public/output?scriptVersionId=286318109&select=submissions.tgz
+
+The latest additions are:
 1. An object / transformation solver: First step to identify all objects in the grids, second step to identify the most obvious transformations, third step to solve based on these as hints. Helps abstract away on noisy problems, e.g. https://arcprize.org/play?task=dbff022c
 2. Multi-agent ("ARC LOGIC AUDITOR" and "ARC Solution Auditor") answer judges. Helps find solutions in cases where they are hard to find, and many of the models make "obvious but identical mistakes" giving clusters around false solutions.
-3. ...
-
-The performance is: XXX
-
-Full results here: XXX
 
 ## Historical performance
 
