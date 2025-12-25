@@ -252,7 +252,7 @@ def build_prompt_codegen_v2(train_examples: List[Example]) -> str:
         "FAIL-FAST REQUIREMENT (IMPORTANT):",
         "- The solver must NOT “fail safe” or silently guess when the input deviates from the inferred structure.",
         "- Derive explicit preconditions from the training-consistent rule (e.g., “exactly one object”, “exactly two colors”, “object touches border”, “output size equals bounding box”, etc.).",
-        "- Enforce those preconditions with `assert ... , "clear message"` or `raise ValueError("clear message")`.",
+        '- Enforce those preconditions with `assert ... , "clear message"` or `raise ValueError("clear message")`.',
         "- If the test input violates the learned preconditions, explicitly FAIL (raise) rather than returning a plausible-looking grid.",
         "- Do NOT wrap the whole solver in broad try/except that hides errors or returns a fallback.",
         "",
