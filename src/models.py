@@ -31,6 +31,11 @@ def parse_model_arg(model_arg: str) -> ModelConfig:
         effort = parts[-1]
         return ModelConfig("openai", GPT_5_1_BASE, effort)
 
+    if model_arg.startswith("gpt-5.2-codex-"):
+        parts = model_arg.split("-")
+        effort = parts[-1]
+        return ModelConfig("openai", "gpt-5.2-codex", effort)
+
     if model_arg.startswith("gpt-5.2-"):
         parts = model_arg.split("-")
         effort = parts[-1]

@@ -12,7 +12,7 @@ from src.solver.pipelines import run_objects_pipeline_variant
 
 def run_step_1(state, models):
     state.set_status(step=1, phase="Shallow search")
-    codegen_models = ["gpt-5.2-low"]
+    codegen_models = ["gpt-5.2-medium"]
     # total_models = len(models) + len(codegen_models)
     total_models = len(codegen_models)
     
@@ -21,7 +21,7 @@ def run_step_1(state, models):
     if state.verbose >= 1:
         print(f"Running {total_models} models...")
     
-    # prompt_step1 = build_prompt(state.task.train, state.test_example)
+    prompt_step1 = build_prompt(state.task.train, state.test_example)
     prompt_codegen = build_prompt_codegen(state.task.train)
 
     # print("\n" + "="*50, file=sys.stderr)
