@@ -4,6 +4,7 @@ from pathlib import Path
 from src.solver_engine import run_solver_mode
 from src.logging import PrefixedStdout
 from src.parallel import set_rate_limit_scaling
+from src.llm_utils import set_retries_enabled
 
 
 
@@ -15,6 +16,10 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
             remaining.value -= 1
 
     try:
+        # Propagate settings to worker process
+        if args.disable_retries:
+            set_retries_enabled(False)
+
         # Apply rate limit scaling (only affects this process)
         if rate_limit_scale != 1.0:
             set_rate_limit_scaling(rate_limit_scale)
