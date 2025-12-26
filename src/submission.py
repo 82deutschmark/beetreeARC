@@ -120,6 +120,8 @@ def generate_submission(final_results, submission_dir_path: str, run_timestamp: 
             # Generate end timestamp in ISO 8601
             end_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")
             
+            usage_data = None
+            cost_data = None
             if usage_stats:
                 def halve(v, is_int=False):
                     if v is None: return None
