@@ -9,6 +9,15 @@ from src.errors import RetryableProviderError, UnknownProviderError, NonRetryabl
 
 logger = get_logger("llm_utils")
 
+_RETRIES_ENABLED = True
+
+def set_retries_enabled(enabled: bool):
+    global _RETRIES_ENABLED
+    _RETRIES_ENABLED = enabled
+
+def get_retries_enabled() -> bool:
+    return _RETRIES_ENABLED
+
 def run_with_retry(
     func: Callable[[], Any],
     max_retries: int = 3,
@@ -24,6 +33,9 @@ def run_with_retry(
     Retries: 2 times (3 total attempts).
     Sleeps: 60s, 300s.
     """
+    if not _RETRIES_ENABLED:
+        max_retries = 1
+
     # Fixed delays for the 2 retries
     retry_delays = [60, 300]
     

@@ -10,6 +10,7 @@ from src.run_utils import find_task_path
 from src.execution import execute_task
 from src.submission import generate_submission
 from src.batch_processing import run_batch_execution
+from src.llm_utils import set_retries_enabled
 
 
 
@@ -32,6 +33,7 @@ def run_app(
     hint=None,
     image=False,
     codegen_prompt="v1b",
+    disable_retries=False,
     trigger_deep_thinking=False,
     generate_hint=False,
     generate_hint_model="gpt-5.1-medium",
@@ -64,6 +66,7 @@ def run_app(
         hint=hint,
         image=image,
         codegen_prompt=codegen_prompt,
+        disable_retries=disable_retries,
         trigger_deep_thinking=trigger_deep_thinking,
         generate_hint=generate_hint,
         generate_hint_model=generate_hint_model,
@@ -77,6 +80,10 @@ def run_app(
         enable_step_3_and_4=enable_step_3_and_4,
         judge_consistency_enable=judge_consistency_enable
     )
+
+    if args.disable_retries:
+        print("Retries disabled.")
+        set_retries_enabled(False)
 
     if os.getenv("ARC_AGI_INSECURE_SSL", "").lower() == "true":
         print("WARNING: SSL verification disabled (ARC_AGI_INSECURE_SSL=true)")

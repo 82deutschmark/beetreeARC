@@ -2,7 +2,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.parallel.worker import run_single_model
 
-def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=None, run_timestamp=None, task_id=None, test_index=None, completion_message: str = None, on_task_complete=None, use_background=False, execution_mode="grid", train_examples=None):
+def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=None, run_timestamp=None, task_id=None, test_index=None, completion_message: str = None, on_task_complete=None, use_background=False, execution_mode="grid", train_examples=None, all_test_examples=None):
     all_results = []
     
     # Wrapper for debugging queue times
@@ -27,7 +27,7 @@ def run_models_in_parallel(models_to_run, run_id_counts, step_name, prompt, test
             executor.submit(
                 debug_run_single_model,
                 time.time(), # Capture queue time
-                run["name"], run["run_id"], prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path, run_timestamp, task_id, test_index, step_name, use_background, execution_mode, train_examples
+                run["name"], run["run_id"], prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path, run_timestamp, task_id, test_index, step_name, use_background, execution_mode, train_examples, all_test_examples
             ): run["run_id"]
             for run in run_list
         }

@@ -10,5 +10,7 @@ from src.tasks.prompts_codegen import (
     build_prompt_codegen_v1b,
     build_prompt_codegen_v2,
     build_prompt_codegen_v2b,
+    build_prompt_codegen_v3_stage1,
+    build_prompt_codegen_v3_stage2,
     build_prompt_codegen
 )

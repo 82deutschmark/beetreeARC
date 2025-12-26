@@ -10,7 +10,7 @@ from src.logging import log_failure
 from src.parallel.limiter import LIMITERS
 from src.parallel.codegen import extract_and_run_solver
 
-def run_single_model(model_name, run_id, prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=None, run_timestamp=None, task_id=None, test_index=None, step_name=None, use_background=False, execution_mode="grid", train_examples=None):
+def run_single_model(model_name, run_id, prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=None, run_timestamp=None, task_id=None, test_index=None, step_name=None, use_background=False, execution_mode="grid", train_examples=None, all_test_examples=None):
     original_model_name = model_name
     prefix = f"[{run_id}]"
     if verbose:
@@ -25,6 +25,8 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
     output_tokens = 0
     cached_tokens = 0
     timings = []
+    v3_details = None
+
     try:
         # Acquire rate limit token
         try:
@@ -82,12 +84,108 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
 
         grid_text = response.text
 
+        # --- V3 Serial Pipeline Path ---
+        if execution_mode == "v3":
+            hypothesis_plan = grid_text
+            stage1_cost = cost
+            stage1_duration = duration
+            stage1_input_tokens = input_tokens
+            stage1_output_tokens = output_tokens
+            stage1_cached_tokens = cached_tokens
+
+            print("\n" + "="*50, file=sys.stderr)
+            print(f"DEBUG: V3 STAGE 1 PROMPT (Analyst):", file=sys.stderr)
+            print(prompt, file=sys.stderr)
+            print("-" * 20, file=sys.stderr)
+            print(f"DEBUG: V3 STAGE 1 RESPONSE:", file=sys.stderr)
+            print(hypothesis_plan, file=sys.stderr)
+            print("="*50 + "\n", file=sys.stderr)
+            
+            from src.tasks import build_prompt_codegen_v3_stage2
+            prompt_stage2 = build_prompt_codegen_v3_stage2(train_examples, all_test_examples, hypothesis_plan)
+            
+            if verbose:
+                print(f"{prefix} Initiating V3 Stage 2 (Engineer)...")
+            
+            # Acquire second rate limit token for second call
+            try:
+                model_config = parse_model_arg(model_name)
+                provider = model_config.provider
+                if provider == "gemini": provider = "google"
+                if provider in LIMITERS:
+                    LIMITERS[provider].acquire()
+            except Exception: pass
+
+            start_ts_s2 = time.perf_counter()
+            response_s2 = call_model(
+                openai_client=openai_client,
+                anthropic_client=anthropic_client,
+                google_keys=google_keys,
+                prompt=prompt_stage2,
+                model_arg=model_name,
+                image_path=image_path,
+                return_strategy=False,
+                verbose=verbose,
+                task_id=task_id,
+                test_index=test_index,
+                step_name=f"{step_name}_s2",
+                use_background=use_background,
+                run_timestamp=run_timestamp,
+                timing_tracker=timings
+            )
+            duration_s2 = time.perf_counter() - start_ts_s2
+            
+            grid_text = response_s2.text
+
+            print("\n" + "="*50, file=sys.stderr)
+            print(f"DEBUG: V3 STAGE 2 PROMPT (Engineer):", file=sys.stderr)
+            print(prompt_stage2, file=sys.stderr)
+            print("-" * 20, file=sys.stderr)
+            print(f"DEBUG: V3 STAGE 2 RESPONSE:", file=sys.stderr)
+            print(grid_text, file=sys.stderr)
+            print("="*50 + "\n", file=sys.stderr)
+
+            input_tokens_s2 = response_s2.prompt_tokens
+            output_tokens_s2 = response_s2.completion_tokens
+            cached_tokens_s2 = response_s2.cached_tokens
+            cost_s2 = calculate_cost(parse_model_arg(model_name), response_s2)
+            
+            # Sum up results
+            cost += cost_s2
+            duration += duration_s2
+            input_tokens += input_tokens_s2
+            output_tokens += output_tokens_s2
+            cached_tokens += cached_tokens_s2
+            full_response = grid_text # ENGINEER result
+            
+            v3_details = {
+                "stage_1": {
+                    "prompt": prompt,
+                    "response": hypothesis_plan,
+                    "cost": stage1_cost,
+                    "duration": stage1_duration,
+                    "input_tokens": stage1_input_tokens,
+                    "output_tokens": stage1_output_tokens,
+                    "cached_tokens": stage1_cached_tokens
+                },
+                "stage_2": {
+                    "prompt": prompt_stage2,
+                    "response": grid_text,
+                    "cost": cost_s2,
+                    "duration": duration_s2,
+                    "input_tokens": input_tokens_s2,
+                    "output_tokens": output_tokens_s2,
+                    "cached_tokens": cached_tokens_s2
+                }
+            }
+
         predicted_grid = None
         verification_details = None
         
-        if execution_mode == "code":
-            # CODE execution path
+        if execution_mode in ("code", "v3"):
+            # Both code mode and v3 use the execution engine
             try:
+                # test_example.input is a list of lists
                 predicted_grid, verification_details = extract_and_run_solver(grid_text, test_example.input, train_examples=train_examples)
             except Exception as e:
                 if verbose:
@@ -127,7 +225,8 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                 "output_tokens": output_tokens, 
                 "cached_tokens": cached_tokens, 
                 "timing_breakdown": timings,
-                "verification_details": verification_details
+                "verification_details": verification_details,
+                "v3_details": v3_details
             }
                     
         except ValueError:
@@ -145,7 +244,8 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                  "output_tokens": output_tokens, 
                  "cached_tokens": cached_tokens, 
                  "timing_breakdown": timings,
-                 "verification_details": verification_details
+                 "verification_details": verification_details,
+                 "v3_details": v3_details
              }
 
     except Exception as e:

@@ -159,6 +159,7 @@ class SolverState:
                     "Extracted grid": res["grid"],
                     "is_correct": res.get("is_correct"),
                     "verification_details": res.get("verification_details"),
+                    "v3_details": res.get("v3_details"),
                 }
                 
                 # Store reasoning for the Judge
