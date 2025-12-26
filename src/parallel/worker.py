@@ -93,54 +93,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
             stage1_output_tokens = output_tokens
             stage1_cached_tokens = cached_tokens
             
-            from src.tasks import build_prompt_codegen_v3_stage2
-            prompt_stage2 = build_prompt_codegen_v3_stage2(train_examples, all_test_examples, hypothesis_plan)
-            
-            if verbose:
-                print(f"{prefix} Initiating V3 Stage 2 (Engineer)...")
-            
-            # Acquire second rate limit token for second call
-            try:
-                model_config = parse_model_arg(model_name)
-                provider = model_config.provider
-                if provider == "gemini": provider = "google"
-                if provider in LIMITERS:
-                    LIMITERS[provider].acquire()
-            except Exception: pass
-
-            start_ts_s2 = time.perf_counter()
-            response_s2 = call_model(
-                openai_client=openai_client,
-                anthropic_client=anthropic_client,
-                google_keys=google_keys,
-                prompt=prompt_stage2,
-                model_arg=model_name,
-                image_path=image_path,
-                return_strategy=False,
-                verbose=verbose,
-                task_id=task_id,
-                test_index=test_index,
-                step_name=f"{step_name}_s2",
-                use_background=use_background,
-                run_timestamp=run_timestamp,
-                timing_tracker=timings
-            )
-            duration_s2 = time.perf_counter() - start_ts_s2
-            
-            grid_text = response_s2.text
-            input_tokens_s2 = response_s2.prompt_tokens
-            output_tokens_s2 = response_s2.completion_tokens
-            cached_tokens_s2 = response_s2.cached_tokens
-            cost_s2 = calculate_cost(parse_model_arg(model_name), response_s2)
-            
-            # Sum up results
-            cost += cost_s2
-            duration += duration_s2
-            input_tokens += input_tokens_s2
-            output_tokens += output_tokens_s2
-            cached_tokens += cached_tokens_s2
-            full_response = grid_text # ENGINEER result
-            
+            # Pre-populate v3_details with Stage 1 info in case Stage 2 fails
             v3_details = {
                 "stage_1": {
                     "prompt": prompt,
@@ -151,7 +104,60 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                     "output_tokens": stage1_output_tokens,
                     "cached_tokens": stage1_cached_tokens
                 },
-                "stage_2": {
+                "stage_2": {"status": "NOT_STARTED"}
+            }
+
+            from src.tasks import build_prompt_codegen_v3_stage2
+            prompt_stage2 = build_prompt_codegen_v3_stage2(train_examples, all_test_examples, hypothesis_plan)
+            
+            if verbose:
+                print(f"{prefix} Initiating V3 Stage 2 (Engineer)...")
+            
+            try:
+                # Acquire second rate limit token for second call
+                try:
+                    model_config = parse_model_arg(model_name)
+                    provider = model_config.provider
+                    if provider == "gemini": provider = "google"
+                    if provider in LIMITERS:
+                        LIMITERS[provider].acquire()
+                except Exception: pass
+
+                start_ts_s2 = time.perf_counter()
+                response_s2 = call_model(
+                    openai_client=openai_client,
+                    anthropic_client=anthropic_client,
+                    google_keys=google_keys,
+                    prompt=prompt_stage2,
+                    model_arg=model_name,
+                    image_path=image_path,
+                    return_strategy=False,
+                    verbose=verbose,
+                    task_id=task_id,
+                    test_index=test_index,
+                    step_name=f"{step_name}_s2",
+                    use_background=use_background,
+                    run_timestamp=run_timestamp,
+                    timing_tracker=timings
+                )
+                duration_s2 = time.perf_counter() - start_ts_s2
+                
+                grid_text = response_s2.text
+                input_tokens_s2 = response_s2.prompt_tokens
+                output_tokens_s2 = response_s2.completion_tokens
+                cached_tokens_s2 = response_s2.cached_tokens
+                cost_s2 = calculate_cost(parse_model_arg(model_name), response_s2)
+                
+                # Sum up results
+                cost += cost_s2
+                duration += duration_s2
+                input_tokens += input_tokens_s2
+                output_tokens += output_tokens_s2
+                cached_tokens += cached_tokens_s2
+                full_response = grid_text # ENGINEER result
+                
+                v3_details["stage_2"] = {
+                    "status": "SUCCESS",
                     "prompt": prompt_stage2,
                     "response": grid_text,
                     "cost": cost_s2,
@@ -160,7 +166,17 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                     "output_tokens": output_tokens_s2,
                     "cached_tokens": cached_tokens_s2
                 }
-            }
+            except Exception as e:
+                if verbose:
+                    print(f"{prefix} V3 Stage 2 Failed: {e}")
+                v3_details["stage_2"] = {
+                    "status": "FAILED",
+                    "error": str(e),
+                    "prompt": prompt_stage2
+                }
+                # Keep grid_text as stage 1 output or set to empty to trigger FAIL_NO_SOLVER later
+                grid_text = "" 
+                full_response = hypothesis_plan + "\n\n[STAGE 2 FAILED: " + str(e) + "]"
 
         predicted_grid = None
         verification_details = None
@@ -250,4 +266,20 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                 test_index=test_index
             )
             
-        return {"model": model_name, "requested_model": original_model_name, "run_id": run_id, "grid": None, "is_correct": False, "cost": cost, "duration": duration, "prompt": prompt, "full_response": str(e), "input_tokens": input_tokens, "output_tokens": output_tokens, "cached_tokens": cached_tokens, "timing_breakdown": timings}
+        return {
+            "model": model_name, 
+            "requested_model": original_model_name, 
+            "run_id": run_id, 
+            "grid": None, 
+            "is_correct": False, 
+            "cost": cost, 
+            "duration": duration, 
+            "prompt": prompt, 
+            "full_response": str(e), 
+            "input_tokens": input_tokens, 
+            "output_tokens": output_tokens, 
+            "cached_tokens": cached_tokens, 
+            "timing_breakdown": timings,
+            "verification_details": verification_details,
+            "v3_details": v3_details
+        }
