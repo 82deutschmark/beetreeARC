@@ -9,8 +9,9 @@ config/api_keys.env
 run_insecure.sh
 logs/
 logs_backup_2/
-src/__pycache__/
-src/providers/__pycache__/
-src/solver/__pycache__/
-tests/__pycache__/
-.DS_Storelogs_big/
+__pycache__/
+src/**/__pycache__/
+tests/**/__pycache__/
+.DS_Store
+**/.DS_Store
+logs_big/
