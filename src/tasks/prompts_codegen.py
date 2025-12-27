@@ -65,10 +65,7 @@ def build_prompt_codegen_v1b(train_examples: List[Example], test_examples: List[
     else:
         lines.append("Only output the python code for the solver() function")
 
-    prompt = "\n".join(lines)
-    import sys
-    print(f"DEBUG: V1B PROMPT:\n{prompt}\n--- END PROMPT ---", file=sys.stderr)
-    return prompt
+    return "\n".join(lines)
 
 def build_prompt_codegen_v2(train_examples: List[Example]) -> str:
     lines = [
@@ -241,10 +238,7 @@ def build_prompt_codegen_v2b(train_examples: List[Example], test_examples: List[
         lines.append(_format_grid(ex.input))
         lines.append("")
 
-    prompt = "\n".join(lines)
-    import sys
-    print(f"DEBUG: V2B PROMPT:\n{prompt}\n--- END PROMPT ---", file=sys.stderr)
-    return prompt
+    return "\n".join(lines)
 
 def _format_v3_data(train_examples: List[Example], test_examples: List[Example]) -> str:
     lines = [
@@ -375,10 +369,7 @@ def build_prompt_codegen_v4(train_examples: List[Example], test_examples: List[E
         "    # ...",
         "```"
     ])
-    prompt = "\n".join(lines)
-    import sys
-    print(f"DEBUG: V4 PROMPT:\n{prompt}\n--- END PROMPT ---", file=sys.stderr)
-    return prompt
+    return "\n".join(lines)
 
 def build_prompt_codegen(train_examples: List[Example], test_examples: List[Example] = None, version: str = "v2", model_name: str = None) -> str:
     if version == "v1":
