@@ -1,9 +1,14 @@
 from typing import List
 from src.types import Example
 
+def _format_grid(grid) -> str:
+    return f"np.array({grid})"
+
 def build_prompt_codegen_v1(train_examples: List[Example]) -> str:
     lines = [
-        "Below is an ARC AGI task. You're given the training input/output pairs in python. Your task is to write a python function solver(input) that returns the output grid. The solver() function must solve all the input/output pairs",
+        "Below is an ARC AGI task. You're given the training input/output pairs in python. Your task is to write a python function solver(input_grid) that returns the output grid. The input_grid is a 2D numpy array. The solver() function must solve all the input/output pairs",
+        "",
+        "You may use numpy, scipy, and cv2 (OpenCV) for grid manipulation.",
         ""
     ]
     
@@ -11,9 +16,9 @@ def build_prompt_codegen_v1(train_examples: List[Example]) -> str:
     for idx, ex in enumerate(train_examples, start=1):
         lines.append(f"Example {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("output:")
-        lines.append(str(ex.output))
+        lines.append(_format_grid(ex.output))
         lines.append("")
 
     lines.append("Only output the python code for the solver() function")
@@ -21,7 +26,9 @@ def build_prompt_codegen_v1(train_examples: List[Example]) -> str:
 
 def build_prompt_codegen_v1b(train_examples: List[Example], test_examples: List[Example], model_name: str = None) -> str:
     lines = [
-        "Below is an ARC AGI task. You're given the training input/output pairs. Your task is to write a python function solver(input) that returns the output grid. The solver() function must solve all the input/output pairs. You're also given some input-only training data to help you ensure your solution is generalizable.",
+        "Below is an ARC AGI task. You're given the training input/output pairs. Your task is to write a python function solver(input_grid) that returns the output grid. The input_grid is a 2D numpy array. The solver() function must solve all the input/output pairs. You're also given some input-only training data to help you ensure your solution is generalizable.",
+        "",
+        "You may use numpy, scipy, and cv2 (OpenCV) for grid manipulation.",
         ""
     ]
     
@@ -29,16 +36,16 @@ def build_prompt_codegen_v1b(train_examples: List[Example], test_examples: List[
     for idx, ex in enumerate(train_examples, start=1):
         lines.append(f"Example {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("output:")
-        lines.append(str(ex.output))
+        lines.append(_format_grid(ex.output))
         lines.append("")
 
     lines.append("Input-only training data:")
     for idx, ex in enumerate(test_examples, start=1):
         lines.append(f"Probe {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("")
 
     if model_name and "gemini" in model_name.lower():
@@ -73,15 +80,15 @@ def build_prompt_codegen_v2(train_examples: List[Example]) -> str:
         "- You MAY include detailed explanations inside the code as Python comments (including markdown-style headings/bullets), as long as the final output is still valid Python source.",
         "",
         "FUNCTION CONTRACT:",
-        "- Signature: `def solver(input_grid: list[list[int]]) -> list[list[int]]:`",
-        "- `input_grid` is a rectangular list of lists of integers 0–9.",
-        "- Return a NEW rectangular list of lists of integers 0–9 (do not mutate `input_grid`).",
+        "- Signature: `def solver(input_grid: np.ndarray) -> list[list[int]]:` (or np.ndarray)",
+        "- `input_grid` is a rectangular 2D numpy array of integers 0–9.",
+        "- Return a NEW rectangular list of lists (or np.ndarray) of integers 0–9 (do not mutate `input_grid`).",
         "- Deterministic and pure: no randomness, no external state, no side effects.",
         "",
         "ALLOWED / DISALLOWED TOOLS:",
-        "- You may use `numpy` and `scipy` for efficient grid manipulation and structural analysis.",
+        "- You may use `numpy` (as `np`), `scipy`, and `cv2` (OpenCV) for efficient grid manipulation and structural analysis.",
         "- If you need other standard library modules, import ONLY inside `solver()` and keep it minimal.",
-        "- For your convenience, `numpy` (as `np`), `scipy`, and common utilities from `collections`, `typing`, `copy`, `math`, and `itertools` are already pre-imported (e.g., `Counter`, `deque`, `defaultdict`, `deepcopy`, `List`, `gcd`).",
+        "- For your convenience, `numpy` (as `np`), `scipy`, `cv2`, and common utilities from `collections`, `typing`, `copy`, `math`, and `itertools` are already pre-imported (e.g., `Counter`, `deque`, `defaultdict`, `deepcopy`, `List`, `gcd`).",
         "- No file/network access, no reading/writing, no debugging output.",
         "",
         "SILENT INTERNAL REASONING WORKFLOW (do this privately; never reveal chain-of-thought):",
@@ -129,9 +136,9 @@ def build_prompt_codegen_v2(train_examples: List[Example]) -> str:
     for idx, ex in enumerate(train_examples, start=1):
         lines.append(f"Example {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("output:")
-        lines.append(str(ex.output))
+        lines.append(_format_grid(ex.output))
         lines.append("")
 
     return "\n".join(lines)
@@ -151,15 +158,15 @@ def build_prompt_codegen_v2b(train_examples: List[Example], test_examples: List[
         "- You MAY include detailed explanations inside the code as Python comments (including markdown-style headings/bullets) as long as the output is valid Python source.",
         "",
         "FUNCTION CONTRACT:",
-        "- Signature: `def solver(input_grid: list[list[int]]) -> list[list[int]]:`",
-        "- `input_grid` is a rectangular list of lists of integers 0–9.",
-        "- Return a NEW rectangular list of lists of integers 0–9 (do not mutate `input_grid`).",
+        "- Signature: `def solver(input_grid: np.ndarray) -> list[list[int]]:` (or np.ndarray)",
+        "- `input_grid` is a rectangular 2D numpy array of integers 0–9.",
+        "- Return a NEW rectangular list of lists (or np.ndarray) of integers 0–9 (do not mutate `input_grid`).",
         "- Deterministic and pure: no randomness, no external state, no side effects.",
         "",
         "ALLOWED / DISALLOWED TOOLS:",
-        "- You may use `numpy` and `scipy` for efficient grid manipulation and structural analysis.",
+        "- You may use `numpy` (as `np`), `scipy`, and `cv2` (OpenCV) for efficient grid manipulation and structural analysis.",
         "- If you need other standard library modules, import ONLY inside `solver()` and keep it minimal.",
-        "- For your convenience, `numpy` (as `np`), `scipy`, and common utilities from `collections`, `typing`, `copy`, `math`, and `itertools` are already pre-imported (e.g., `Counter`, `deque`, `defaultdict`, `deepcopy`, `List`, `gcd`).",
+        "- For your convenience, `numpy` (as `np`), `scipy`, `cv2`, and common utilities from `collections`, `typing`, `copy`, `math`, and `itertools` are already pre-imported (e.g., `Counter`, `deque`, `defaultdict`, `deepcopy`, `List`, `gcd`).",
         "- No file/network access, no reading/writing, no debugging output.",
         "",
         "SILENT INTERNAL REASONING WORKFLOW (do this privately; never reveal chain-of-thought):",
@@ -222,16 +229,16 @@ def build_prompt_codegen_v2b(train_examples: List[Example], test_examples: List[
     for idx, ex in enumerate(train_examples, start=1):
         lines.append(f"Example {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("output:")
-        lines.append(str(ex.output))
+        lines.append(_format_grid(ex.output))
         lines.append("")
 
     lines.append("Probe inputs:")
     for idx, ex in enumerate(test_examples, start=1):
         lines.append(f"Probe {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("")
 
     prompt = "\n".join(lines)
@@ -249,16 +256,16 @@ def _format_v3_data(train_examples: List[Example], test_examples: List[Example])
     for idx, ex in enumerate(train_examples, start=1):
         lines.append(f"Example {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("output:")
-        lines.append(str(ex.output))
+        lines.append(_format_grid(ex.output))
         lines.append("")
 
     lines.append("Input-only training data:")
     for idx, ex in enumerate(test_examples, start=1):
         lines.append(f"Probe {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("")
     return "\n".join(lines)
 
@@ -283,14 +290,14 @@ def build_prompt_codegen_v3_stage2(train_examples: List[Example], test_examples:
         hypothesis_plan,
         "",
         "**Your Task:**",
-        "1. Your task is to write a python function solver(input) that returns the output grid. The solver() function must solve all the input/output pairs. You're also given some input-only training data to help you ensure your solution is generalizable.",
-        "2. Implement the correct logic into a Python function named `solver(input)`.",
+        "1. Your task is to write a python function solver(input_grid) that returns the output grid. The input_grid is a 2D numpy array. The solver() function must solve all the input/output pairs. You're also given some input-only training data to help you ensure your solution is generalizable.",
+        "2. Implement the correct logic into a Python function named `solver(input_grid)`.",
         "3. Return only the Python code.",
         "",
         "ALLOWED / DISALLOWED TOOLS:",
-        "- You may use `numpy` and `scipy` for efficient grid manipulation and structural analysis.",
+        "- You may use `numpy` (as `np`), `scipy`, and `cv2` (OpenCV) for efficient grid manipulation and structural analysis.",
         "- If you need other standard library modules, import ONLY inside `solver()` and keep it minimal.",
-        "- For your convenience, `numpy` (as `np`), `scipy`, and common utilities from `collections`, `typing`, `copy`, `math`, and `itertools` are already pre-imported (e.g., `Counter`, `deque`, `defaultdict`, `deepcopy`, `List`, `gcd`).",
+        "- For your convenience, `numpy` (as `np`), `scipy`, `cv2`, and common utilities from `collections`, `typing`, `copy`, `math`, and `itertools` are already pre-imported (e.g., `Counter`, `deque`, `defaultdict`, `deepcopy`, `List`, `gcd`).",
         "- No file/network access, no reading/writing, no debugging output."
     ]
     return "\n".join(lines)
@@ -305,16 +312,16 @@ def build_prompt_codegen_v4(train_examples: List[Example], test_examples: List[E
     for idx, ex in enumerate(train_examples, start=1):
         lines.append(f"Example {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("output:")
-        lines.append(str(ex.output))
+        lines.append(_format_grid(ex.output))
         lines.append("")
 
     lines.append("Input-only training data (Probe Inputs):")
     for idx, ex in enumerate(test_examples, start=1):
         lines.append(f"Probe {idx}:")
         lines.append("input:")
-        lines.append(str(ex.input))
+        lines.append(_format_grid(ex.input))
         lines.append("")
     
     lines.extend([
@@ -324,6 +331,7 @@ def build_prompt_codegen_v4(train_examples: List[Example], test_examples: List[E
         "",
         "You are an expert ARC-AGI Solver Architect equipped with a **Python Code Execution Tool**.",
         "Your goal is to write a final, robust `solver(input_grid)` function.",
+        "The `input_grid` provided to `solver` will be a **2D NumPy array**.",
         "You are provided with **Solved Training Pairs** (to derive the rule) and **Unlabeled Probe Inputs** (to test generalizability).",
         "",
         "**CRITICAL RULE:** Do NOT guess. Do NOT rely on visual intuition alone. You must PROVE your solution works using the tool.",
@@ -332,10 +340,10 @@ def build_prompt_codegen_v4(train_examples: List[Example], test_examples: List[E
         "Before answering, you must use the Python tool to perform this cycle:",
         "",
         "1.  **Load Data**: The python environment starts empty. Write a script to define:",
-        "    *   `train_inputs` and `train_outputs` (from the Solved Examples).",
-        "    *   `probe_inputs` (from the Input-Only Data).",
+        "    *   `train_inputs` and `train_outputs` (from the Solved Examples, converted to **numpy arrays**).",
+        "    *   `probe_inputs` (from the Input-Only Data, converted to **numpy arrays**).",
         "",
-        "2.  **Analyze**: Use numpy to inspect ALL grids (training + probes). ",
+        "2.  **Analyze**: Use numpy and cv2 to inspect ALL grids (training + probes). ",
         "    *   *Check the Probes*: Do they have different sizes? Do they introduce new colors? ",
         "    *   Ensure your rule does not rely on assumptions that the Probes violate.",
         "",
@@ -352,7 +360,7 @@ def build_prompt_codegen_v4(train_examples: List[Example], test_examples: List[E
         "Once (and ONLY once) you have a valid python script that has passed the verification loop in the logs:",
         "",
         "1.  Output the final, standalone `solver(input_grid)` function.",
-        "2.  The code must be self-contained (import numpy as np inside).",
+        "2.  The code must be self-contained (import numpy as np, cv2 inside).",
         "3.  **Do not include the test harness or data loading** in the final block. Just the solver function.",
         "4.  Precede the final code block with exactly this label: `### FINAL SOLUTION ###` (followed by code block)",
         "",
@@ -360,12 +368,17 @@ def build_prompt_codegen_v4(train_examples: List[Example], test_examples: List[E
         "### FINAL SOLUTION ###",
         "```python",
         "import numpy as np",
+        "import cv2",
         "",
         "def solver(input_grid):",
+        "    # input_grid is a 2D numpy array",
         "    # ...",
         "```"
     ])
-    return "\n".join(lines)
+    prompt = "\n".join(lines)
+    import sys
+    print(f"DEBUG: V4 PROMPT:\n{prompt}\n--- END PROMPT ---", file=sys.stderr)
+    return prompt
 
 def build_prompt_codegen(train_examples: List[Example], test_examples: List[Example] = None, version: str = "v2", model_name: str = None) -> str:
     if version == "v1":
