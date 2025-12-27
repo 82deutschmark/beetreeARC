@@ -2,6 +2,20 @@ from datetime import datetime
 import json
 import sys
 from pathlib import Path
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+def numpy_converter(obj):
+    if np:
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
 def generate_submission(final_results, submission_dir_path: str, run_timestamp: str):
     submission_dir = Path(submission_dir_path)
@@ -18,7 +32,7 @@ def generate_submission(final_results, submission_dir_path: str, run_timestamp: 
         # individual_file = submission_dir / f"{run_timestamp}_{task_id}_{test_idx}.json"
         # try:
         #     with open(individual_file, "w") as f:
-        #         json.dump(preds, f, indent=2)
+        #         json.dump(preds, f, indent=2, default=numpy_converter)
         # except Exception as e:
         #     print(f"Error saving individual result for {task_id}:{test_idx}: {e}", file=sys.stderr)
         
@@ -212,12 +226,12 @@ def generate_submission(final_results, submission_dir_path: str, run_timestamp: 
         task_file = submission_dir / f"{task_id}.json"
         try:
             with open(task_file, "w") as f:
-                json.dump(task_aggregated_data, f, indent=2)
+                json.dump(task_aggregated_data, f, indent=2, default=numpy_converter)
         except Exception as e:
             print(f"Error saving task file {task_file}: {e}", file=sys.stderr)
 
     with open(submission_file, "w") as f:
-        json.dump(formatted_submission, f)
+        json.dump(formatted_submission, f, default=numpy_converter)
         
     print(f"Submission file saved to: {submission_file}")
 
@@ -369,7 +383,7 @@ def generate_submission(final_results, submission_dir_path: str, run_timestamp: 
     results_file = submission_dir / "results.json"
     try:
         with open(results_file, "w") as f:
-            json.dump(results_data, f, indent=4)
+            json.dump(results_data, f, indent=4, default=numpy_converter)
         print(f"Results file saved to: {results_file}")
     except Exception as e:
         print(f"Error saving results file: {e}", file=sys.stderr)

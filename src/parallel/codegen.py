@@ -2,6 +2,7 @@ import re
 import sys
 import copy
 import traceback
+from src.augmentation import get_augmented_pairs
 
 def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples: list = None, task_id: str = None, test_index: int = None) -> tuple[list | None, dict | None]:
     """
@@ -139,6 +140,58 @@ def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples:
                 return None, verification_log
             
             verification_log["status"] = "PASS"
+
+            # --- Augmentation Verification (Soft Check) ---
+            try:
+                augmented_results = []
+                counts = {"rotation": 0, "reflection": 0, "color": 0}
+                passed = {"rotation": 0, "reflection": 0, "color": 0}
+                
+                for i, ex in enumerate(train_examples):
+                    augmented_pairs = get_augmented_pairs(ex.input, ex.output)
+                    
+                    for pair in augmented_pairs:
+                        aug_type = pair["type"]
+                        aug_cat = "color" if "color" in aug_type else ("rotation" if "rotation" in aug_type else "reflection")
+                        counts[aug_cat] += 1
+                        
+                        aug_entry = {
+                            "original_index": i,
+                            "type": aug_type,
+                            "status": "UNKNOWN"
+                        }
+                        
+                        try:
+                            # Run solver on augmented input
+                            res_aug = solver_func(pair["input"])
+                            
+                            if res_aug == pair["output"]:
+                                aug_entry["status"] = "PASS"
+                                passed[aug_cat] += 1
+                            else:
+                                aug_entry["status"] = "FAIL"
+                                # Optional: Store actual vs expected if needed, but keeping it light
+                        except Exception as e:
+                            aug_entry["status"] = "CRASH"
+                            aug_entry["error"] = str(e)
+                        
+                        augmented_results.append(aug_entry)
+                
+                # Calculate Rates
+                stats = {}
+                for cat in counts:
+                    if counts[cat] > 0:
+                        stats[f"{cat}_pass_rate"] = round(passed[cat] / counts[cat], 2)
+                    else:
+                        stats[f"{cat}_pass_rate"] = 0.0
+                
+                verification_log["augmented_stats"] = stats
+                verification_log["augmented_results"] = augmented_results
+                
+            except Exception as e:
+                # Augmentation logic itself shouldn't crash the whole run
+                print(f"DEBUG {log_prefix}: Augmentation verification failed: {e}", file=sys.stderr)
+                verification_log["augmented_error"] = str(e)
             
         try:
             result = solver_func(test_input_grid)
