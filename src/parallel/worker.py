@@ -26,6 +26,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
     full_response = ""
     input_tokens = 0
     output_tokens = 0
+    thought_tokens = 0
     cached_tokens = 0
     timings = []
     v3_details = None
@@ -66,6 +67,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
         full_response = response.text
         input_tokens = response.prompt_tokens
         output_tokens = response.completion_tokens
+        thought_tokens = response.thought_tokens
         cached_tokens = response.cached_tokens
         
         # Handle model fallback
@@ -94,6 +96,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
             stage1_duration = duration
             stage1_input_tokens = input_tokens
             stage1_output_tokens = output_tokens
+            stage1_thought_tokens = thought_tokens
             stage1_cached_tokens = cached_tokens
             
             # Pre-populate v3_details with Stage 1 info in case Stage 2 fails
@@ -105,6 +108,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                     "duration": stage1_duration,
                     "input_tokens": stage1_input_tokens,
                     "output_tokens": stage1_output_tokens,
+                    "thought_tokens": stage1_thought_tokens,
                     "cached_tokens": stage1_cached_tokens
                 },
                 "stage_2": {"status": "NOT_STARTED"}
@@ -148,6 +152,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                 grid_text = response_s2.text
                 input_tokens_s2 = response_s2.prompt_tokens
                 output_tokens_s2 = response_s2.completion_tokens
+                thought_tokens_s2 = response_s2.thought_tokens
                 cached_tokens_s2 = response_s2.cached_tokens
                 cost_s2 = calculate_cost(parse_model_arg(model_name), response_s2)
                 
@@ -156,6 +161,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                 duration += duration_s2
                 input_tokens += input_tokens_s2
                 output_tokens += output_tokens_s2
+                thought_tokens += thought_tokens_s2
                 cached_tokens += cached_tokens_s2
                 full_response = grid_text # ENGINEER result
                 
@@ -167,6 +173,7 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                     "duration": duration_s2,
                     "input_tokens": input_tokens_s2,
                     "output_tokens": output_tokens_s2,
+                    "thought_tokens": thought_tokens_s2,
                     "cached_tokens": cached_tokens_s2
                 }
             except Exception as e:
@@ -230,7 +237,8 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                 "prompt": prompt, 
                 "full_response": full_response, 
                 "input_tokens": input_tokens, 
-                "output_tokens": output_tokens, 
+                "output_tokens": output_tokens + thought_tokens, 
+                "reasoning_tokens": thought_tokens,
                 "cached_tokens": cached_tokens, 
                 "timing_breakdown": timings,
                 "verification_details": verification_details,
@@ -249,7 +257,8 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                  "prompt": prompt, 
                  "full_response": full_response, 
                  "input_tokens": input_tokens, 
-                 "output_tokens": output_tokens, 
+                 "output_tokens": output_tokens + thought_tokens, 
+                 "reasoning_tokens": thought_tokens,
                  "cached_tokens": cached_tokens, 
                  "timing_breakdown": timings,
                  "verification_details": verification_details,
@@ -286,7 +295,8 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
             "prompt": prompt, 
             "full_response": str(e), 
             "input_tokens": input_tokens, 
-            "output_tokens": output_tokens, 
+            "output_tokens": output_tokens + thought_tokens, 
+            "reasoning_tokens": thought_tokens,
             "cached_tokens": cached_tokens, 
             "timing_breakdown": timings,
             "verification_details": verification_details,

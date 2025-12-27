@@ -89,11 +89,13 @@ class SolverState:
                 input_tokens = res.get("input_tokens") or 0
                 cached_tokens = res.get("cached_tokens") or 0
                 output_tokens = res.get("output_tokens") or 0
+                reasoning_tokens = res.get("reasoning_tokens") or 0
                 
                 self.usage_stats["prompt_tokens"] += (input_tokens + cached_tokens)
                 self.usage_stats["completion_tokens"] += output_tokens
                 self.usage_stats["total_tokens"] += (input_tokens + cached_tokens + output_tokens)
-                self.usage_stats["accepted_prediction_tokens"] += output_tokens # Per instructions
+                self.usage_stats["reasoning_tokens"] += reasoning_tokens
+                self.usage_stats["accepted_prediction_tokens"] += (output_tokens - reasoning_tokens)
                 
                 # Cost Breakdown Calculation
                 try:
@@ -109,28 +111,7 @@ class SolverState:
                         if base_model == GEMINI_3_BASE and (input_tokens + cached_tokens) > 200000:
                             pricing = {"input": 4.00, "cached_input": 0.40, "output": 18.00}
                             
-                        non_cached_input = max(0, input_tokens) # assuming input_tokens is already non-cached in res or check logic. 
-                        # In models.py: calculate_cost uses response.prompt_tokens - response.cached_tokens. 
-                        # res["input_tokens"] usually comes from response.prompt_tokens (total prompt) or just prompt?
-                        # Let's assume res["input_tokens"] is TOTAL PROMPT tokens based on standard usage, or check usage.
-                        # Actually standard OpenAI usage: prompt_tokens is total. 
-                        # But in process_results above I did: input_tokens + cached_tokens. 
-                        # If res["input_tokens"] is total prompt tokens, then adding cached_tokens again is double counting if cached is included.
-                        # Let's check src/models.py: response.prompt_tokens is from usage.prompt_tokens. 
-                        # response.cached_tokens is from usage.prompt_tokens_details.cached_tokens.
-                        # So prompt_tokens INCLUDES cached_tokens.
-                        # Re-checking previous logic:
-                        # calculate_cost: non_cached_input = max(0, response.prompt_tokens - response.cached_tokens)
-                        
-                        # So:
-                        total_prompt_tokens = input_tokens # Assuming res['input_tokens'] maps to response.prompt_tokens
-                        # If res['input_tokens'] was derived differently, this might be off.
-                        # Assuming res['input_tokens'] == response.prompt_tokens (Total)
-                        
-                        # Fix for token aggregation above:
-                        # self.usage_stats["prompt_tokens"] += total_prompt_tokens (Total)
-                        # self.usage_stats["total_tokens"] += total_prompt_tokens + output_tokens
-                        
+                        total_prompt_tokens = input_tokens 
                         non_cached_val = max(0, total_prompt_tokens - cached_tokens)
                         
                         p_cost = (non_cached_val / 1_000_000 * pricing["input"]) + \
@@ -153,6 +134,7 @@ class SolverState:
                     "actual_model": res.get("model"),
                     "input_tokens": res.get("input_tokens", 0),
                     "output_tokens": res.get("output_tokens", 0),
+                    "reasoning_tokens": res.get("reasoning_tokens", 0),
                     "cached_tokens": res.get("cached_tokens", 0),
                     "timing_breakdown": res.get("timing_breakdown"),
                     "Full raw LLM call": res["prompt"],
