@@ -2,7 +2,7 @@ import re
 import sys
 import copy
 import traceback
-import signal
+import time
 from contextlib import contextmanager
 from src.augmentation import get_augmented_pairs
 
@@ -11,18 +11,21 @@ class TimeoutException(Exception):
 
 @contextmanager
 def execution_timeout(seconds: int):
-    def signal_handler(signum, frame):
-        raise TimeoutException(f"Execution timed out after {seconds}s")
+    start_time = time.time()
     
-    # Set the signal handler and a timer
-    old_handler = signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(seconds)
+    def trace_func(frame, event, arg):
+        if time.time() - start_time > seconds:
+            raise TimeoutException(f"Execution timed out after {seconds}s")
+        return trace_func
+    
+    # Set the trace function for the current thread
+    old_trace = sys.gettrace()
+    sys.settrace(trace_func)
     try:
         yield
     finally:
-        # Disable the alarm and restore the old handler
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, old_handler)
+        # Restore the previous trace function
+        sys.settrace(old_trace)
 
 def sanitize_output(obj):
     """Recursively converts numpy types to standard Python types."""
