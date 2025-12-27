@@ -64,7 +64,7 @@ class OpenAIRequestRunner:
             })
         return content
 
-    def solve_stream(self, prompt: str, image_path: Optional[str] = None) -> ModelResponse:
+    def solve_stream(self, prompt: str, image_path: Optional[str] = None, enable_code_execution: bool = False) -> ModelResponse:
         content = self._prepare_content(prompt, image_path)
 
         kwargs = {
@@ -75,6 +75,15 @@ class OpenAIRequestRunner:
         }
         if self.reasoning_effort != "none":
             kwargs["reasoning"] = {"effort": self.reasoning_effort}
+        
+        if enable_code_execution:
+            kwargs["tools"] = [{
+                "type": "code_interpreter",
+                "container": {"type": "auto"}
+            }]
+            kwargs["tool_choice"] = "auto"
+            kwargs["max_tool_calls"] = 100
+            kwargs["include"] = ["code_interpreter_call.outputs"]
 
         def _call_and_accumulate():
             try:
@@ -179,7 +188,7 @@ class OpenAIRequestRunner:
             logger.error(f"Step 2 strategy extraction failed: {e}")
             return None
 
-    def run(self, prompt: str, image_path: Optional[str] = None, return_strategy: bool = False, use_background: bool = False) -> ModelResponse:
+    def run(self, prompt: str, image_path: Optional[str] = None, return_strategy: bool = False, use_background: bool = False, enable_code_execution: bool = False) -> ModelResponse:
         if use_background:
             return run_with_retry(
                 lambda: self.background_solver.solve(prompt, image_path),
@@ -192,7 +201,7 @@ class OpenAIRequestRunner:
             )
         
         return orchestrate_two_stage(
-            lambda p: self.solve_stream(p, image_path),
+            lambda p: self.solve_stream(p, image_path, enable_code_execution=enable_code_execution),
             self.explain,
             prompt,
             return_strategy,

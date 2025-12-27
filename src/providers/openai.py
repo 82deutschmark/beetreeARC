@@ -19,6 +19,7 @@ def call_openai_internal(
     anthropic_client: Anthropic = None,
     model_alias: str = None,
     timing_tracker: list[dict] = None,
+    enable_code_execution: bool = False,
 ) -> ModelResponse:
     """
     Main entry point for OpenAI provider.
@@ -36,4 +37,4 @@ def call_openai_internal(
         timing_tracker=timing_tracker,
         verbose=verbose
     )
-    return runner.run(prompt, image_path=image_path, return_strategy=return_strategy, use_background=use_background)
+    return runner.run(prompt, image_path=image_path, return_strategy=return_strategy, use_background=use_background, enable_code_execution=enable_code_execution)

@@ -120,7 +120,7 @@ def call_model(
     timings = timing_tracker if timing_tracker is not None else []
 
     if config.provider == "openai":
-        # OpenAI doesn't support code execution tool in our current implementation
+        # OpenAI supports code interpreter tool
         response = call_openai_internal(
             openai_client,
             prompt,
@@ -136,6 +136,7 @@ def call_model(
             anthropic_client=anthropic_client,
             model_alias=model_arg,
             timing_tracker=timings,
+            enable_code_execution=enable_code_execution
         )
     elif config.provider == "anthropic":
         if not anthropic_client:
