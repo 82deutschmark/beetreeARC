@@ -1,4 +1,5 @@
 import json
+import re
 
 def check_correctness(call_val, task_id, test_id, answers):
     is_correct = call_val.get("is_correct")
@@ -212,10 +213,7 @@ def parse_nested_step(content, task_id, test_id, answers):
                     if not isinstance(inner_val, dict):
                         continue
                         
-                    if "_step_" in inner_call:
-                        cleaned_name = inner_call.split("_step_")[0]
-                    else:
-                        cleaned_name = inner_call
+                    cleaned_name = re.sub(r'_\d+(\.\d+)?$', '', inner_call)
                     
                     model = inner_val.get("model", "")
                     if model:
@@ -224,10 +222,7 @@ def parse_nested_step(content, task_id, test_id, answers):
                     cleaned_calls.append(create_call_info(cleaned_name, inner_val, task_id, test_id, answers, generator=generator_name, run_id=inner_call))
             else:
                 # Process normal call
-                if "_step_" in call_key:
-                    cleaned_name = call_key.split("_step_")[0]
-                else:
-                    cleaned_name = call_key
+                cleaned_name = re.sub(r'_\d+(\.\d+)?$', '', call_key)
                 
                 # Try to infer generator from call key string for objects_pipeline variants
                 gen_name = None
@@ -257,10 +252,7 @@ def parse_generic_step(content, task_id, test_id, answers):
     for call_key, call_val in content.items():
         if call_key == "is_solved": continue 
 
-        if "_step_" in call_key:
-            cleaned_name = call_key.split("_step_")[0]
-        else:
-            cleaned_name = call_key
+        cleaned_name = re.sub(r'_\d+(\.\d+)?$', '', call_key)
         
         result["calls"].append(create_call_info(cleaned_name, call_val, task_id, test_id, answers, run_id=call_key))
         

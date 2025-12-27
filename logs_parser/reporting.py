@@ -66,7 +66,12 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
                 cost = call_info["cost"]
                 status_val = call_info["status"]
                 
-                print(f"    {name:<{max_name_len}} {duration:8.2f}s  ${cost:9.4f}  {status_val}")
+                verification_status = "-"
+                details = call_info.get("verification_details")
+                if details and isinstance(details, dict):
+                    verification_status = details.get("status", "-")
+
+                print(f"    {name:<{max_name_len}} {duration:8.2f}s  ${cost:9.4f}  {status_val:<8} {verification_status}")
 
     # Model Stats
     max_model_len = 0
