@@ -326,3 +326,8 @@ Data:
 - There are some problems that only V1B solved (136b0064, 16de56c4, 31f7f899)
 
 Overall, V1B outperforms V2B.
+
+
+Also on the frontier-47 problems V1B is significantly outperforming V2B:
+- V1B: 21 calls passed
+- V2B: 10 calls passed
