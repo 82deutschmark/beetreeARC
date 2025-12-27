@@ -1,8 +1,25 @@
-import re
-import sys
-import copy
-import traceback
-from src.augmentation import get_augmented_pairs
+def sanitize_output(obj):
+    """Recursively converts numpy types to standard Python types."""
+    if isinstance(obj, list):
+        return [sanitize_output(x) for x in obj]
+    if isinstance(obj, tuple):
+        return tuple(sanitize_output(x) for x in obj)
+    if isinstance(obj, dict):
+        return {k: sanitize_output(v) for k, v in obj.items()}
+    
+    # Numpy checks (using string matching if numpy not imported, but here it is imported)
+    try:
+        import numpy as np
+        if isinstance(obj, (np.integer, int)):
+            return int(obj)
+        if isinstance(obj, (np.floating, float)):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return sanitize_output(obj.tolist())
+    except ImportError:
+        pass
+        
+    return obj
 
 def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples: list = None, task_id: str = None, test_index: int = None) -> tuple[list | None, dict | None]:
     """
@@ -110,7 +127,8 @@ def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples:
                 }
                 try:
                     input_copy = copy.deepcopy(ex.input)
-                    res = solver_func(input_copy)
+                    raw_res = solver_func(input_copy)
+                    res = sanitize_output(raw_res)
                     entry["actual"] = res
                     
                     if res != ex.output:
@@ -163,7 +181,8 @@ def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples:
                         
                         try:
                             # Run solver on augmented input
-                            res_aug = solver_func(pair["input"])
+                            raw_res_aug = solver_func(pair["input"])
+                            res_aug = sanitize_output(raw_res_aug)
                             
                             if res_aug == pair["output"]:
                                 aug_entry["status"] = "PASS"
@@ -194,7 +213,9 @@ def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples:
                 verification_log["augmented_error"] = str(e)
             
         try:
-            result = solver_func(test_input_grid)
+            raw_result = solver_func(test_input_grid)
+            result = sanitize_output(raw_result)
+            
             if isinstance(result, list):
                  if len(result) > 0 and isinstance(result[0], list):
                      return result, verification_log
