@@ -2,7 +2,27 @@ import re
 import sys
 import copy
 import traceback
+import signal
+from contextlib import contextmanager
 from src.augmentation import get_augmented_pairs
+
+class TimeoutException(Exception):
+    pass
+
+@contextmanager
+def execution_timeout(seconds: int):
+    def signal_handler(signum, frame):
+        raise TimeoutException(f"Execution timed out after {seconds}s")
+    
+    # Set the signal handler and a timer
+    old_handler = signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        # Disable the alarm and restore the old handler
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 def sanitize_output(obj):
     """Recursively converts numpy types to standard Python types."""
@@ -133,7 +153,8 @@ def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples:
                 }
                 try:
                     input_copy = copy.deepcopy(ex.input)
-                    raw_res = solver_func(input_copy)
+                    with execution_timeout(10):
+                        raw_res = solver_func(input_copy)
                     res = sanitize_output(raw_res)
                     entry["actual"] = res
                     
@@ -187,7 +208,8 @@ def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples:
                         
                         try:
                             # Run solver on augmented input
-                            raw_res_aug = solver_func(pair["input"])
+                            with execution_timeout(10):
+                                raw_res_aug = solver_func(pair["input"])
                             res_aug = sanitize_output(raw_res_aug)
                             
                             if res_aug == pair["output"]:
@@ -219,7 +241,8 @@ def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples:
                 verification_log["augmented_error"] = str(e)
             
         try:
-            raw_result = solver_func(test_input_grid)
+            with execution_timeout(10):
+                raw_result = solver_func(test_input_grid)
             result = sanitize_output(raw_result)
             
             if isinstance(result, list):
