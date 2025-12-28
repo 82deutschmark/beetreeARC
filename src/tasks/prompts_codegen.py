@@ -403,11 +403,7 @@ def build_prompt_codegen_v4(train_examples: List[Example], test_examples: List[E
             "```"
         ])
     
-    final_prompt = "\n".join(lines)
-    import sys
-    sys.stderr.write(f"\n--- DEBUG: V4 PROMPT (Model: {model_name}) ---\n{final_prompt}\n--- END DEBUG ---\n")
-    sys.stderr.flush()
-    return final_prompt
+    return "\n".join(lines)
 
 def build_prompt_codegen(train_examples: List[Example], test_examples: List[Example] = None, version: str = "v2", model_name: str = None) -> str:
     if version == "v1":
