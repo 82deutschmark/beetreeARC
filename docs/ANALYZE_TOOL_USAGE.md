@@ -40,3 +40,4 @@ With tools:
 
 Gemini seems to significantly outperform with tools, whereas gpt is outperforming without tools. This is an interesting insight. Furthermore, there seems to be fewer crashes/time-outs when using tools.
 
+IMPORTANT: It seems gpt is broken for tool calls. This requires more investigation.
