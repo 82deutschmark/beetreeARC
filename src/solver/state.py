@@ -143,6 +143,7 @@ class SolverState:
                     "is_correct": res.get("is_correct"),
                     "verification_details": res.get("verification_details"),
                     "v3_details": res.get("v3_details"),
+                    "detailed_logs": res.get("detailed_logs"),
                 }
                 
                 # Store reasoning for the Judge

@@ -128,9 +128,36 @@ def call_gemini(
         
         try:
             text_parts = []
+            detailed_logs = []
             if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
-                    if part.text: text_parts.append(part.text)
+                    if part.thought:
+                        detailed_logs.append({"type": "thought", "content": part.thought})
+                    
+                    if part.executable_code:
+                        detailed_logs.append({
+                            "type": "code", 
+                            "code": part.executable_code.code,
+                            "language": part.executable_code.language
+                        })
+                    
+                    if part.code_execution_result:
+                        detailed_logs.append({
+                            "type": "execution_result",
+                            "outcome": part.code_execution_result.outcome,
+                            "output": part.code_execution_result.output
+                        })
+
+                    if part.function_call:
+                        detailed_logs.append({
+                            "type": "function_call",
+                            "name": part.function_call.name,
+                            "args": part.function_call.args
+                        })
+
+                    if part.text:
+                        text_parts.append(part.text)
+                        detailed_logs.append({"type": "text", "content": part.text})
             
             usage = response.usage_metadata
             return ModelResponse(
@@ -138,7 +165,8 @@ def call_gemini(
                 prompt_tokens=usage.prompt_token_count if usage and usage.prompt_token_count is not None else 0,
                 cached_tokens=0,
                 completion_tokens=usage.candidates_token_count if usage and usage.candidates_token_count is not None else 0,
-                thought_tokens=getattr(usage, "thoughts_token_count", 0) if usage else 0
+                thought_tokens=getattr(usage, "thoughts_token_count", 0) if usage else 0,
+                detailed_logs=detailed_logs
             )
         except Exception as e:
              raise RuntimeError(f"Failed to parse Gemini response: {e} - Raw: {response}")
@@ -157,9 +185,36 @@ def call_gemini(
             )
             
             text_parts = []
+            detailed_logs = []
             if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
-                    if part.text: text_parts.append(part.text)
+                    if part.thought:
+                        detailed_logs.append({"type": "thought", "content": part.thought})
+                    
+                    if part.executable_code:
+                        detailed_logs.append({
+                            "type": "code", 
+                            "code": part.executable_code.code,
+                            "language": part.executable_code.language
+                        })
+                    
+                    if part.code_execution_result:
+                        detailed_logs.append({
+                            "type": "execution_result",
+                            "outcome": part.code_execution_result.outcome,
+                            "output": part.code_execution_result.output
+                        })
+
+                    if part.function_call:
+                        detailed_logs.append({
+                            "type": "function_call",
+                            "name": part.function_call.name,
+                            "args": part.function_call.args
+                        })
+
+                    if part.text:
+                        text_parts.append(part.text)
+                        detailed_logs.append({"type": "text", "content": part.text})
             
             usage = response.usage_metadata
             return ModelResponse(
@@ -167,7 +222,8 @@ def call_gemini(
                 prompt_tokens=usage.prompt_token_count if usage and usage.prompt_token_count is not None else 0,
                 cached_tokens=0,
                 completion_tokens=usage.candidates_token_count if usage and usage.candidates_token_count is not None else 0,
-                thought_tokens=getattr(usage, "thoughts_token_count", 0) if usage else 0
+                thought_tokens=getattr(usage, "thoughts_token_count", 0) if usage else 0,
+                detailed_logs=detailed_logs
             )
         except Exception as e:
             logger.error(f"Step 2 strategy extraction failed: {e}")

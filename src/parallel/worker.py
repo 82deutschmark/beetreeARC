@@ -244,7 +244,8 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                 "cached_tokens": cached_tokens, 
                 "timing_breakdown": timings,
                 "verification_details": verification_details,
-                "v3_details": v3_details
+                "v3_details": v3_details,
+                "detailed_logs": getattr(response, "detailed_logs", None)
             }
                     
         except ValueError:
@@ -264,7 +265,8 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                  "cached_tokens": cached_tokens, 
                  "timing_breakdown": timings,
                  "verification_details": verification_details,
-                 "v3_details": v3_details
+                 "v3_details": v3_details,
+                 "detailed_logs": getattr(response, "detailed_logs", None)
              }
 
     except Exception as e:
@@ -302,5 +304,6 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
             "cached_tokens": cached_tokens, 
             "timing_breakdown": timings,
             "verification_details": verification_details,
-            "v3_details": v3_details
+            "v3_details": v3_details,
+            "detailed_logs": None
         }
