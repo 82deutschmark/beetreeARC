@@ -1,16 +1,36 @@
-import time
 import sys
 import os
 import traceback
 from typing import Optional, List, Dict
 
-from src.models import call_model, parse_model_arg, calculate_cost
 from src.grid import parse_grid_from_text, verify_prediction
 from src.logging import log_failure
-from src.parallel.limiter import LIMITERS
 from src.parallel.codegen import extract_and_run_solver
 
-def run_single_model(model_name, run_id, prompt, test_example, openai_client, anthropic_client, google_keys, verbose, image_path=None, run_timestamp=None, task_id=None, test_index=None, step_name=None, use_background=False, execution_mode="grid", train_examples=None, all_test_examples=None):
+# Refactored modules
+from src.parallel.worker_utils.model_execution import execute_model_call, ExecutionContext
+from src.parallel.worker_utils.v3_pipeline import run_v3_pipeline
+from src.parallel.worker_utils.results import format_worker_result
+
+def run_single_model(
+    model_name, 
+    run_id, 
+    prompt, 
+    test_example, 
+    openai_client, 
+    anthropic_client, 
+    google_keys, 
+    verbose, 
+    image_path=None, 
+    run_timestamp=None, 
+    task_id=None, 
+    test_index=None, 
+    step_name=None, 
+    use_background=False, 
+    execution_mode="grid", 
+    train_examples=None, 
+    all_test_examples=None
+):
     original_model_name = model_name
     prefix = f"[{run_id}]"
     if task_id is not None:
@@ -21,184 +41,80 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
         if image_path:
             print(f"{prefix} Including image: {image_path}")
 
-    cost = 0.0
-    duration = 0.0
-    full_response = ""
-    input_tokens = 0
-    output_tokens = 0
-    thought_tokens = 0
-    cached_tokens = 0
-    timings = []
+    context = ExecutionContext()
+    client_config = {
+        'openai_client': openai_client,
+        'anthropic_client': anthropic_client,
+        'google_keys': google_keys
+    }
+
     v3_details = None
     verification_details = None
+    detailed_logs = None
 
     try:
-        # Acquire rate limit token
-        try:
-            model_config = parse_model_arg(model_name)
-            provider = model_config.provider
-            if provider == "gemini": # Map internal name to config key
-                provider = "google"
-            
-            if provider in LIMITERS:
-                if verbose:
-                    print(f"{prefix} Waiting for rate limit token ({provider})...")
-                LIMITERS[provider].acquire()
-        except Exception as e:
-            print(f"{prefix} Warning: Failed to acquire rate limit token: {e}", file=sys.stderr)
-
-        start_ts = time.perf_counter()
-        response = call_model(
-            openai_client=openai_client,
-            anthropic_client=anthropic_client,
-            google_keys=google_keys,
+        # 1. Execute Main Model Call
+        response = execute_model_call(
+            client_config=client_config,
             prompt=prompt,
-            model_arg=model_name,
-            image_path=image_path,
-            return_strategy=False,
+            model_name=model_name,
+            context=context,
             verbose=verbose,
+            prefix=prefix,
+            image_path=image_path,
             task_id=task_id,
             test_index=test_index,
             step_name=step_name,
             use_background=use_background,
             run_timestamp=run_timestamp,
-            timing_tracker=timings,
-            enable_code_execution=(execution_mode == "v4")
+            execution_mode=execution_mode
         )
-        duration = time.perf_counter() - start_ts
-        full_response = response.text
-        input_tokens = response.prompt_tokens
-        output_tokens = response.completion_tokens
-        thought_tokens = response.thought_tokens
-        cached_tokens = response.cached_tokens
-        
-        # Handle model fallback
+        detailed_logs = getattr(response, "detailed_logs", None)
+
+        # Handle fallback
         if response.model_name and response.model_name != model_name:
             if verbose:
                 print(f"{prefix} Model fallback occurred: {model_name} -> {response.model_name}")
-            
             run_id = run_id.replace(model_name, response.model_name, 1)
             model_name = response.model_name
-        
-        try:
-            model_config = parse_model_arg(model_name)
-            cost = calculate_cost(model_config, response)
-        except Exception:
-            pass
 
         if verbose:
             print(f"{prefix} Response received.")
 
         grid_text = response.text
 
-        # --- V3 Serial Pipeline Path ---
+        # 2. V3 Pipeline (Optional)
         if execution_mode == "v3":
-            hypothesis_plan = grid_text
-            stage1_cost = cost
-            stage1_duration = duration
-            stage1_input_tokens = input_tokens
-            stage1_output_tokens = output_tokens
-            stage1_thought_tokens = thought_tokens
-            stage1_cached_tokens = cached_tokens
-            
-            # Pre-populate v3_details with Stage 1 info in case Stage 2 fails
-            v3_details = {
-                "stage_1": {
-                    "prompt": prompt,
-                    "response": hypothesis_plan,
-                    "cost": stage1_cost,
-                    "duration": stage1_duration,
-                    "input_tokens": stage1_input_tokens,
-                    "output_tokens": stage1_output_tokens,
-                    "thought_tokens": stage1_thought_tokens,
-                    "cached_tokens": stage1_cached_tokens
-                },
-                "stage_2": {"status": "NOT_STARTED"}
-            }
+            grid_text, v3_details = run_v3_pipeline(
+                hypothesis_plan=grid_text,
+                train_examples=train_examples,
+                all_test_examples=all_test_examples,
+                client_config=client_config,
+                model_name=model_name,
+                context=context,
+                verbose=verbose,
+                prefix=prefix,
+                image_path=image_path,
+                task_id=task_id,
+                test_index=test_index,
+                step_name=step_name,
+                use_background=use_background,
+                run_timestamp=run_timestamp,
+                execution_mode=execution_mode
+            )
 
-            from src.tasks import build_prompt_codegen_v3_stage2
-            prompt_stage2 = build_prompt_codegen_v3_stage2(train_examples, all_test_examples, hypothesis_plan)
-            
-            if verbose:
-                print(f"{prefix} Initiating V3 Stage 2 (Engineer)...")
-            
-            try:
-                # Acquire second rate limit token for second call
-                try:
-                    model_config = parse_model_arg(model_name)
-                    provider = model_config.provider
-                    if provider == "gemini": provider = "google"
-                    if provider in LIMITERS:
-                        LIMITERS[provider].acquire()
-                except Exception: pass
-
-                start_ts_s2 = time.perf_counter()
-                response_s2 = call_model(
-                    openai_client=openai_client,
-                    anthropic_client=anthropic_client,
-                    google_keys=google_keys,
-                    prompt=prompt_stage2,
-                    model_arg=model_name,
-                    image_path=image_path,
-                    return_strategy=False,
-                    verbose=verbose,
-                    task_id=task_id,
-                    test_index=test_index,
-                    step_name=f"{step_name}_s2",
-                    use_background=use_background,
-                    run_timestamp=run_timestamp,
-                    timing_tracker=timings,
-                    enable_code_execution=(execution_mode == "v4")
-                )
-                duration_s2 = time.perf_counter() - start_ts_s2
-                
-                grid_text = response_s2.text
-                input_tokens_s2 = response_s2.prompt_tokens
-                output_tokens_s2 = response_s2.completion_tokens
-                thought_tokens_s2 = response_s2.thought_tokens
-                cached_tokens_s2 = response_s2.cached_tokens
-                cost_s2 = calculate_cost(parse_model_arg(model_name), response_s2)
-                
-                # Sum up results
-                cost += cost_s2
-                duration += duration_s2
-                input_tokens += input_tokens_s2
-                output_tokens += output_tokens_s2
-                thought_tokens += thought_tokens_s2
-                cached_tokens += cached_tokens_s2
-                full_response = grid_text # ENGINEER result
-                
-                v3_details["stage_2"] = {
-                    "status": "SUCCESS",
-                    "prompt": prompt_stage2,
-                    "response": grid_text,
-                    "cost": cost_s2,
-                    "duration": duration_s2,
-                    "input_tokens": input_tokens_s2,
-                    "output_tokens": output_tokens_s2,
-                    "thought_tokens": thought_tokens_s2,
-                    "cached_tokens": cached_tokens_s2
-                }
-            except Exception as e:
-                if verbose:
-                    print(f"{prefix} V3 Stage 2 Failed: {e}")
-                v3_details["stage_2"] = {
-                    "status": "FAILED",
-                    "error": str(e),
-                    "prompt": prompt_stage2
-                }
-                # Keep grid_text as stage 1 output or set to empty to trigger FAIL_NO_SOLVER later
-                grid_text = "" 
-                full_response = hypothesis_plan + "\n\n[STAGE 2 FAILED: " + str(e) + "]"
-
+        # 3. Extraction & Execution
         predicted_grid = None
-        verification_details = None
         
         if execution_mode in ("code", "v3", "v4"):
-            # Both code mode, v3 and v4 use the execution engine
             try:
-                # test_example.input is a list of lists
-                predicted_grid, verification_details = extract_and_run_solver(grid_text, test_example.input, train_examples=train_examples, task_id=task_id, test_index=test_index)
+                predicted_grid, verification_details = extract_and_run_solver(
+                    grid_text, 
+                    test_example.input, 
+                    train_examples=train_examples, 
+                    task_id=task_id, 
+                    test_index=test_index
+                )
             except Exception as e:
                 if verbose:
                     print(f"{prefix} Code Execution Failed: {e}")
@@ -209,66 +125,36 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                         "traceback": traceback.format_exc()
                     }
         else:
-            # GRID parsing path (Standard)
             try:
                 predicted_grid = parse_grid_from_text(grid_text)
             except ValueError as e:
                 if verbose:
                     print(f"{prefix} Result: FAIL (Parse Error: {e})")
-                    print(f"\n{prefix} Raw Output:\n{grid_text}")
-        
-        # Verification
+
+        # 4. Verification
+        is_correct = False
         try:
             is_correct = verify_prediction(predicted_grid, test_example.output)
             
             if verbose:
-                if is_correct:
-                    print(f"{prefix} Result: PASS")
-                elif is_correct is False:
-                    print(f"{prefix} Result: FAIL")
-                else:
-                    print(f"{prefix} Result: UNKNOWN (No Ground Truth)")
-            
-            return {
-                "model": model_name, 
-                "requested_model": original_model_name, 
-                "run_id": run_id, 
-                "grid": predicted_grid, 
-                "is_correct": is_correct, 
-                "cost": cost, 
-                "duration": duration, 
-                "prompt": prompt, 
-                "full_response": full_response, 
-                "input_tokens": input_tokens, 
-                "output_tokens": output_tokens + thought_tokens, 
-                "reasoning_tokens": thought_tokens,
-                "cached_tokens": cached_tokens, 
-                "timing_breakdown": timings,
-                "verification_details": verification_details,
-                "v3_details": v3_details,
-                "detailed_logs": getattr(response, "detailed_logs", None)
-            }
-                    
+                result_str = "PASS" if is_correct else ("FAIL" if is_correct is False else "UNKNOWN")
+                print(f"{prefix} Result: {result_str}")
+                
         except ValueError:
-             return {
-                 "model": model_name, 
-                 "requested_model": original_model_name, 
-                 "run_id": run_id, 
-                 "grid": None, 
-                 "is_correct": False, 
-                 "cost": cost, 
-                 "duration": duration, 
-                 "prompt": prompt, 
-                 "full_response": full_response, 
-                 "input_tokens": input_tokens, 
-                 "output_tokens": output_tokens + thought_tokens, 
-                 "reasoning_tokens": thought_tokens,
-                 "cached_tokens": cached_tokens, 
-                 "timing_breakdown": timings,
-                 "verification_details": verification_details,
-                 "v3_details": v3_details,
-                 "detailed_logs": getattr(response, "detailed_logs", None)
-             }
+            is_correct = False
+
+        return format_worker_result(
+            model_name=model_name,
+            requested_model=original_model_name,
+            run_id=run_id,
+            grid=predicted_grid,
+            is_correct=is_correct,
+            context=context,
+            prompt=prompt,
+            verification_details=verification_details,
+            v3_details=v3_details,
+            detailed_logs=detailed_logs
+        )
 
     except Exception as e:
         error_msg = f"\n!!! CRITICAL ERROR in {model_name} ({run_id}) !!!\n{str(e)}\n{traceback.format_exc()}\n"
@@ -289,22 +175,16 @@ def run_single_model(model_name, run_id, prompt, test_example, openai_client, an
                 test_index=test_index
             )
             
-        return {
-            "model": model_name, 
-            "requested_model": original_model_name, 
-            "run_id": run_id, 
-            "grid": None, 
-            "is_correct": False, 
-            "cost": cost, 
-            "duration": duration, 
-            "prompt": prompt, 
-            "full_response": str(e), 
-            "input_tokens": input_tokens, 
-            "output_tokens": output_tokens + thought_tokens, 
-            "reasoning_tokens": thought_tokens,
-            "cached_tokens": cached_tokens, 
-            "timing_breakdown": timings,
-            "verification_details": verification_details,
-            "v3_details": v3_details,
-            "detailed_logs": None
-        }
+        return format_worker_result(
+            model_name=model_name,
+            requested_model=original_model_name,
+            run_id=run_id,
+            grid=None,
+            is_correct=False,
+            context=context, # May be partial
+            prompt=prompt,
+            verification_details=verification_details,
+            v3_details=v3_details,
+            detailed_logs=detailed_logs,
+            error_message=str(e)
+        )

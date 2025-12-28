@@ -112,7 +112,7 @@ def extract_and_run_solver(llm_code: str, test_input_grid: list, train_examples:
                 success, result, logs = run_untrusted_code(code, ex.input, timeout_s=10.0)
                 
                 if not success:
-                    print(f"DEBUG {log_prefix}: Solver FAILED on Train Example {i+1}: {result}", file=sys.stderr)
+                    print(f"DEBUG {log_prefix}: Solver FAILED on Train Example {i+1}: {result}\nDetails:\n{logs}", file=sys.stderr)
                     if result == "TIMEOUT_EXPIRED":
                         entry["status"] = "TIMEOUT"
                         entry["error"] = logs
