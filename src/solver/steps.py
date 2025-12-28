@@ -26,7 +26,6 @@ def run_step_1(state, standard_models, codegen_models):
     total_models = n_std + n_code
     
     print(f"Broad search: {n_std}std + {n_code}code")
-    print(f"Codegen Config: {[f'{m} ({v})' for job in codegen_jobs for m in job['models'] for v in [job['version']] ]}")
 
     step_1_log = {}
     if state.verbose >= 1:
