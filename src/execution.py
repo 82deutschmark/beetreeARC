@@ -19,9 +19,9 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
             running.value += 1
             remaining.value -= 1
 
-    # Install Watchdog (10 minutes hard limit per task)
+    # Install Watchdog (8 hours hard limit per task)
     old_handler = signal.signal(signal.SIGALRM, _hard_timeout_handler)
-    signal.alarm(600) 
+    signal.alarm(28800) 
 
     try:
         # Propagate settings to worker process
