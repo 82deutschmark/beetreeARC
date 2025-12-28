@@ -92,6 +92,7 @@ class ModelResponse:
     prompt_tokens: int
     cached_tokens: int
     completion_tokens: int
+    thought_tokens: int = 0
     strategy: Optional[str] = None
     model_name: Optional[str] = None
     timing_breakdown: Optional[list[dict]] = None
