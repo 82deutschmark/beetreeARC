@@ -5,6 +5,7 @@ import random
 from typing import Optional
 import PIL.Image
 import httpx
+import concurrent.futures
 
 from google import genai
 from google.genai import types
@@ -79,11 +80,19 @@ def call_gemini(
     chat = client.chats.create(model=model, config=gen_config)
 
     def _safe_send(message):
-        try:
+        def _inner_send():
             # Suppress Pydantic serialization warnings from the SDK
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=UserWarning, message=".*Pydantic serializer warnings.*")
                 return chat.send_message(message)
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_inner_send)
+                # Enforce hard wall-clock timeout (slightly larger than socket timeout)
+                return future.result(timeout=3660)
+        except concurrent.futures.TimeoutError as e:
+            raise RetryableProviderError(f"Gemini Hard Wall-Clock Timeout (Key #{key_index}, Model: {model}): Call exceeded 3660s") from e
         except Exception as e:
             # 1. Known SDK Retryables
             if isinstance(e, (google_exceptions.ResourceExhausted, google_exceptions.ServiceUnavailable, google_exceptions.InternalServerError, google_exceptions.TooManyRequests)):
