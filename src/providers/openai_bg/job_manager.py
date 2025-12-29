@@ -4,7 +4,6 @@ from typing import Optional, TYPE_CHECKING
 from src.llm_utils import run_with_retry
 from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError
 from src.providers.openai_utils import _map_openai_exception
-from src.providers.openai_bg.fallback import fallback_to_claude
 from src.providers.openai_bg.parsing import parse_job_output
 
 if TYPE_CHECKING:
@@ -62,11 +61,6 @@ def poll_job(runner: 'OpenAIRequestRunner', job_id: str, prompt: str, image_path
         # Check Timeout
         elapsed = time.time() - start_time
         if elapsed > max_wait_time:
-            if runner.reasoning_effort == "xhigh":
-                return fallback_to_claude(runner, prompt, image_path, f"Timeout after {max_wait_time}s", start_attempt_ts, thinking=True)
-            elif runner.reasoning_effort == "low":
-                return fallback_to_claude(runner, prompt, image_path, f"Timeout after {max_wait_time}s", start_attempt_ts, thinking=False)
-            
             if runner.is_downgraded_retry:
                 raise NonRetryableProviderError(f"OpenAI Background Job {job_id} timed out after {max_wait_time}s (Downgraded Retry Failed)")
 
@@ -85,24 +79,15 @@ def poll_job(runner: 'OpenAIRequestRunner', job_id: str, prompt: str, image_path
             except Exception as e:
                 _map_openai_exception(e, runner.full_model_name)
 
-        try:
-            job = run_with_retry(
-                lambda: _retrieve(), 
-                task_id=runner.task_id, 
-                test_index=runner.test_index, 
-                run_timestamp=runner.run_timestamp, 
-                model_name=runner.full_model_name, 
-                timing_tracker=runner.timing_tracker, 
-                log_success=False
-            )
-        except NonRetryableProviderError as e:
-            # Fallback on 403 Fatal Error
-            if "OpenAI Fatal Error" in str(e) and "403" in str(e):
-                if runner.reasoning_effort == "xhigh":
-                    return fallback_to_claude(runner, prompt, image_path, f"OpenAI 403 Forbidden: {e}", start_attempt_ts, thinking=True)
-                elif runner.reasoning_effort == "low":
-                    return fallback_to_claude(runner, prompt, image_path, f"OpenAI 403 Forbidden: {e}", start_attempt_ts, thinking=False)
-            raise e
+        job = run_with_retry(
+            lambda: _retrieve(), 
+            task_id=runner.task_id, 
+            test_index=runner.test_index, 
+            run_timestamp=runner.run_timestamp, 
+            model_name=runner.full_model_name, 
+            timing_tracker=runner.timing_tracker, 
+            log_success=False
+        )
 
         if job.status in ("queued", "in_progress"):
             sleep_time = poll_interval_base + random.uniform(0, 1.0)
@@ -115,24 +100,13 @@ def poll_job(runner: 'OpenAIRequestRunner', job_id: str, prompt: str, image_path
         
         elif job.status == "failed":
             err_msg = f"Code: {job.error.code}, Message: {job.error.message}" if job.error else "Unknown error"
-            
-            # Fallback on server_error
-            if job.error and job.error.code == "server_error":
-                if runner.reasoning_effort == "xhigh":
-                    return fallback_to_claude(runner, prompt, image_path, f"OpenAI Server Error: {err_msg}", start_attempt_ts, thinking=True)
-                elif runner.reasoning_effort == "low":
-                    return fallback_to_claude(runner, prompt, image_path, f"OpenAI Server Error: {err_msg}", start_attempt_ts, thinking=False)
-
             raise RetryableProviderError(f"OpenAI Background Job {job_id} FAILED: {err_msg}")
         
         elif job.status in ("cancelled", "incomplete"):
             reason = getattr(job, 'incomplete_details', 'Unknown')
             reason_str = str(reason)
             if "max_output_tokens" in reason_str or "token_limit" in reason_str:
-                if runner.reasoning_effort == "xhigh":
-                    return fallback_to_claude(runner, prompt, image_path, f"Token limit: {reason}", start_attempt_ts, thinking=True)
-                elif runner.reasoning_effort == "low":
-                    return fallback_to_claude(runner, prompt, image_path, f"Token limit: {reason}", start_attempt_ts, thinking=False)
+                raise RetryableProviderError(f"OpenAI Background Job {job_id} hit token limit: {reason}")
             
             raise NonRetryableProviderError(f"OpenAI Background Job {job_id} ended with status={job.status}, reason={reason}")
         

@@ -37,6 +37,7 @@ def parse_finish_step(content):
                             
                         result["calls"].append({
                             "name": display_name,
+                            "run_id": display_name,
                             "duration": duration,
                             "cost": cost,
                             "input_tokens": input_tokens,
