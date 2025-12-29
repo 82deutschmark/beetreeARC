@@ -30,10 +30,10 @@ def run_app(
     force_step_2=False,
     verbose=0,
     models=None,
-    step1_models="gpt-5.2-none,claude-opus-4.5-no-thinking",
+    step1_models=None,
     hint=None,
     image=False,
-    codegen_params="gpt-5.2-low=v1b,gpt-5.2-low=v4,gemini-3-low=v4",
+    codegen_params=None,
     disable_retries=False,
     disable_step_1_standard_models=False,
     trigger_deep_thinking=False,
@@ -50,6 +50,19 @@ def run_app(
     enable_step_3_and_4=False,
     judge_consistency_enable=False,
 ):
+    # Set default values based on mode if not provided
+    if step1_models is None:
+        if solver_testing:
+            step1_models = "gpt-5.2-low,claude-opus-4.5-thinking-4000"
+        else:
+            step1_models = "claude-opus-4.5-thinking-60000,claude-opus-4.5-thinking-60000,gemini-3-pro,gpt-5.2-xhigh,gpt-5.2-xhigh"
+
+    if codegen_params is None:
+        if solver_testing:
+            codegen_params = "gpt-5.2-low=v1b,gpt-5.2-low=v4,gemini-3-low=v4"
+        else:
+            codegen_params = "gemini-3-high=v4,gpt-5.2-xhigh=v1b,gpt-5.2-xhigh=v4,gpt-5.2-xhigh=v4"
+
     # Construct args namespace to pass around internally as many legacy functions expect it
     args = SimpleNamespace(
         task=task,

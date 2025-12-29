@@ -32,13 +32,30 @@ def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: boo
             # Models for --solver-testing
             # models_step1 = ["claude-opus-4.5-thinking-4000", "gpt-5.1-none"] # Overridden by codegen_models argument
             models_step3 = ["claude-sonnet-4.5-no-thinking", "gpt-5.1-low"]
-            models_step5 = ["claude-opus-4.5-no-thinking", "gpt-5.1-none", "gpt-5.1-low"]
+            
+            # Step 5 - Testing
+            models_step5_deep = ["gpt-5.2-low"]
+            models_step5_image = ["gpt-5.2-low"]
+            params_step5_codegen = "gemini-3-low=v4,gpt-5.2-low=v1b,gpt-5.2-low=v4"
+            
             hint_generation_model = "gpt-5.1-low"
         else:
             # Models for --solver
             # models_step1 = ["gemini-3-high"] * 2 + ["claude-opus-4.5-thinking-60000"] * 2 + ["gpt-5.2-xhigh"] * 6
             models_step3 = ["claude-opus-4.5-thinking-60000", "gemini-3-high", "gemini-3-high", "gpt-5.2-xhigh", "gpt-5.2-xhigh"]
-            models_step5 = ["gemini-3-high"] * 1 + ["claude-opus-4.5-thinking-60000"] * 1 + ["gpt-5.2-xhigh"] * 3
+            
+            # Step 5 - Production
+            models_step5_deep = ["gpt-5.2-xhigh"]
+            models_step5_image = ["gpt-5.2-xhigh"] * 4
+            
+            # Construct large codegen string
+            # 5x gemini-3-pro v4 + 3x gpt-5.2-xhigh v1b + 6x gpt-5.2-xhigh v4
+            parts = []
+            parts.extend(["gemini-3-pro=v4"] * 5)
+            parts.extend(["gpt-5.2-xhigh=v1b"] * 3)
+            parts.extend(["gpt-5.2-xhigh=v4"] * 6)
+            params_step5_codegen = ",".join(parts)
+
             hint_generation_model = "gpt-5.2-xhigh"
 
         # Skip logic
@@ -70,7 +87,7 @@ def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: boo
              print("\nSkipping Steps 1-4 (Deep Search Only Mode)")
 
         # STEP 5
-        run_step_5(state, models_step5, hint_generation_model, objects_only=objects_only)
+        run_step_5(state, models_step5_deep, models_step5_image, params_step5_codegen, hint_generation_model, enable_hints=False, enable_objects=False, objects_only=objects_only)
 
         # STEP FINISH
         return state.finalize("step_finish")
