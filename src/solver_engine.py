@@ -49,9 +49,9 @@ def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: boo
             models_step5_image = ["gpt-5.2-xhigh"] * 4
             
             # Construct large codegen string
-            # 5x gemini-3-pro v4 + 3x gpt-5.2-xhigh v1b + 6x gpt-5.2-xhigh v4
+            # 5x gemini-3-high v4 + 3x gpt-5.2-xhigh v1b + 6x gpt-5.2-xhigh v4
             parts = []
-            parts.extend(["gemini-3-pro=v4"] * 5)
+            parts.extend(["gemini-3-high=v4"] * 5)
             parts.extend(["gpt-5.2-xhigh=v1b"] * 3)
             parts.extend(["gpt-5.2-xhigh=v4"] * 6)
             params_step5_codegen = ",".join(parts)
