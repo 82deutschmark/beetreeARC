@@ -32,7 +32,7 @@ def build_prompt_codegen_v4(train_examples: List[Example], test_examples: List[E
         lines.extend([
             "*** ANALYSIS & VERIFICATION PROCESS ***",
             "",
-            "You are an expert ARC-AGI Solver Architect.",
+            "You are an expert ARC-AGI Solver Architect equipped with a **python tool** (Code Interpreter).",
             "Your goal is to write a final, robust `solver(input_grid)` function.",
             "The `input_grid` provided to `solver` will be a **2D NumPy array**.",
             "",
