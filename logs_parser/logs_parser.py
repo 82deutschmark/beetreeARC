@@ -248,14 +248,14 @@ def parse_logs(directory, codegen_analysis=None, all_analysis=None):
                     
                     def find_prompt_recursive(d):
                         if isinstance(d, dict):
+                            # Heuristic: Find first codegen if possible, or any call
                             for k, v in d.items():
                                 if isinstance(v, dict):
                                     p = v.get("Full raw LLM call")
                                     if p:
-                                        # Prefer non-codegen, non-judge for original prompt
-                                        if "codegen" not in k.lower() and "judge" not in k.lower():
-                                            return p
-                                        # Fallback to any prompt found (likely codegen)
+                                        # Prefer codegen for original prompt if multiple solvers used
+                                        if "codegen" in k.lower(): return p
+                                        # Fallback to any prompt found
                                         if not hasattr(find_prompt_recursive, 'fallback') or find_prompt_recursive.fallback is None:
                                             find_prompt_recursive.fallback = p
                                 if isinstance(v, (dict, list)):
