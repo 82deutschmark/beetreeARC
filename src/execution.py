@@ -90,6 +90,7 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
 
         with PrefixedStdout(get_prefix, message_width=30):
             try:
+                print(f"DEBUG: execute_task judge_duo_pick={args.judge_duo_pick}", file=sys.stderr)
                 predictions = run_solver_mode(
                     task_id, test_index, args.verbose, 
                     is_testing=args.solver_testing, 

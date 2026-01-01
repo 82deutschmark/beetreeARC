@@ -49,6 +49,7 @@ def pick_solution_v2(candidates_object, reasoning_store, task, test_index, opena
 
     # 2. Duo Pick Judge (High Priority)
     if judge_duo_pick_enable:
+        print("[pick_solution_v2] Invoking Duo Pick Judge...", file=sys.stderr)
         duo_data = { "prompt": None, "response": None, "picked_grids": None }
         duo_prompt = build_duo_pick_prompt(train_examples, test_input, candidates_list, reasoning_store, total_attempts)
         duo_data["prompt"] = duo_prompt

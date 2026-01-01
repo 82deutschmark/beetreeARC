@@ -49,7 +49,7 @@ def run_app(
     openai_background=True,
     enable_step_3_and_4=False,
     judge_consistency_enable=False,
-    judge_duo_pick=False,
+    judge_duo_pick=True,
 ):
     # Set default values based on mode if not provided
     if step1_models is None:
