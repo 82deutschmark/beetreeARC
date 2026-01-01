@@ -106,6 +106,7 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
                     openai_background=args.openai_background,
                     enable_step_3_and_4=args.enable_step_3_and_4,
                     judge_consistency_enable=args.judge_consistency_enable,
+                    judge_duo_pick_enable=args.judge_duo_pick,
                     codegen_params=args.codegen_params,
                     step1_models=args.step1_models,
                     disable_step_1_standard_models=args.disable_step_1_standard_models,

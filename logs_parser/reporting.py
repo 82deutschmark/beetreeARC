@@ -27,6 +27,10 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
     solved_tasks_count = 0
     vote_only_solved_count = 0
     score_only_solved_count = 0
+    duo_pick_solved_count = 0
+    
+    score_only_attempts = 0
+    duo_pick_attempts = 0
 
     for task, test in sorted_keys:
         total_tasks_count += 1
@@ -44,6 +48,15 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
             
         if strategies["score"]:
             score_only_solved_count += 1
+            
+        if strategies.get("score_active"):
+            score_only_attempts += 1
+
+        if strategies["duo_pick"]:
+            duo_pick_solved_count += 1
+            
+        if strategies.get("duo_pick_active"):
+            duo_pick_attempts += 1
 
         print(f"{task}:{test} {status}")
         
@@ -97,7 +110,7 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
         print_timing_stats_v2(timing_stats_v2, max_model_len)
 
     print_cost_stats(model_stats, max_model_len, sorted_models)
-    print_strategy_stats(total_tasks_count, solved_tasks_count, vote_only_solved_count, score_only_solved_count)
+    print_strategy_stats(total_tasks_count, solved_tasks_count, vote_only_solved_count, score_only_solved_count, duo_pick_solved_count, score_only_attempts, duo_pick_attempts)
     print_methodology_stats(task_data)
     print_judge_performance(task_data)
     print_failed_task_model_stats(task_data)

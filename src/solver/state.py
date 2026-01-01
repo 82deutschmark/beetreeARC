@@ -12,7 +12,7 @@ from src.logging import setup_logging, write_step_log, PrefixedStdout
 from src.models import parse_model_arg, PRICING_PER_1M_TOKENS, GEMINI_3_BASE
 
 class SolverState:
-    def __init__(self, task_id: str, test_index: int, verbose: int, is_testing: bool, run_timestamp: str, task_path: Path = None, answer_path: Path = None, judge_model: str = "gemini-3-high", old_pick_solution: bool = False, task_status=None, openai_background: bool = True, judge_consistency_enable: bool = False, codegen_prompt: str = "v1b", logs_directory: str = "logs/"):
+    def __init__(self, task_id: str, test_index: int, verbose: int, is_testing: bool, run_timestamp: str, task_path: Path = None, answer_path: Path = None, judge_model: str = "gpt-5.2-xhigh", old_pick_solution: bool = False, task_status=None, openai_background: bool = True, judge_consistency_enable: bool = False, judge_duo_pick_enable: bool = False, codegen_prompt: str = "v1b", logs_directory: str = "logs/"):
         self.task_id = task_id
         self.test_index = test_index
         self.verbose = verbose
@@ -24,6 +24,7 @@ class SolverState:
         self.task_status = task_status if task_status is not None else {}
         self.openai_background = openai_background
         self.judge_consistency_enable = judge_consistency_enable
+        self.judge_duo_pick_enable = judge_duo_pick_enable
         self.codegen_prompt = codegen_prompt
         self.logs_directory = logs_directory
         self.task_status.setdefault('step', '0')
@@ -176,6 +177,7 @@ class SolverState:
                 print("\n[finalize] Using old pick_solution logic.")
             picked_solutions, result, selection_metadata = pick_solution(self.candidates_object, self.verbose)
         else:
+            total_attempts = sum(self.run_id_counts.values())
             picked_solutions, result, selection_metadata = pick_solution_v2(
                 self.candidates_object, 
                 self.reasoning_store, 
@@ -187,7 +189,9 @@ class SolverState:
                             self.judge_model,
                             self.verbose,
                             openai_background=self.openai_background,
-                            judge_consistency_enable=self.judge_consistency_enable
+                            judge_consistency_enable=self.judge_consistency_enable,
+                            judge_duo_pick_enable=self.judge_duo_pick_enable,
+                            total_attempts=total_attempts
                         )        
         if not has_ground_truth:
             outcome = "SUBMITTED"

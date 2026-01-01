@@ -49,6 +49,7 @@ def run_app(
     openai_background=True,
     enable_step_3_and_4=False,
     judge_consistency_enable=False,
+    judge_duo_pick=False,
 ):
     # Set default values based on mode if not provided
     if step1_models is None:
@@ -97,7 +98,8 @@ def run_app(
         solver_testing=solver_testing,
         openai_background=openai_background,
         enable_step_3_and_4=enable_step_3_and_4,
-        judge_consistency_enable=judge_consistency_enable
+        judge_consistency_enable=judge_consistency_enable,
+        judge_duo_pick=judge_duo_pick
     )
 
     if args.disable_retries:

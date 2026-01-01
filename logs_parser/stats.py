@@ -39,6 +39,7 @@ def determine_strategies_status(task_data_entry):
 
     # --- Score only Strategy ---
     score_only_solved = False
+    score_only_active = False
     if finish_data and isinstance(finish_data, dict) and "selection_details" in finish_data:
         sel_details = finish_data["selection_details"]
         if isinstance(sel_details, dict) and "selection_process" in sel_details:
@@ -46,6 +47,7 @@ def determine_strategies_status(task_data_entry):
             if isinstance(sel_process, dict) and "candidates_summary" in sel_process:
                 candidates_summary = sel_process["candidates_summary"]
                 if isinstance(candidates_summary, list):
+                    score_only_active = True
                     sorted_scored_candidates = sorted(
                         [c for c in candidates_summary if isinstance(c, dict) and "score" in c],
                         key=lambda x: x.get("score", 0),
@@ -72,10 +74,26 @@ def determine_strategies_status(task_data_entry):
     else:
          pass # print("DEBUG: No selection_details found")
     
+    # --- Duo Pick Strategy ---
+    duo_pick_solved = False
+    duo_pick_active = False
+    if finish_data and isinstance(finish_data, dict) and "judge_stats" in finish_data:
+        j_stats = finish_data["judge_stats"]
+        if "duo_pick" in j_stats:
+            duo_pick_active = True
+            evals = j_stats["duo_pick"].get("evaluations", [])
+            for e in evals:
+                if e.get("is_correct") is True:
+                    duo_pick_solved = True
+                    break
+
     return {
         "standard": standard_solved,
         "vote": vote_only_solved,
-        "score": score_only_solved
+        "score": score_only_solved,
+        "duo_pick": duo_pick_solved,
+        "score_active": score_only_active,
+        "duo_pick_active": duo_pick_active
     }
 
 def calculate_model_stats(task_data):

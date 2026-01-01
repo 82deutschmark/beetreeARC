@@ -48,6 +48,30 @@ def parse_finish_step(content):
                         })
                         
                         # Extract detailed stats
+                        if judge_name == "duo_pick":
+                            picked_grids = judge_data.get("picked_grids", [])
+                            correct_solution = content.get("correct_solution")
+                            
+                            evals = []
+                            for idx, grid in enumerate(picked_grids):
+                                is_correct = False
+                                if correct_solution:
+                                    is_correct = (grid == correct_solution)
+                                
+                                evals.append({
+                                    "is_correct": is_correct,
+                                    "score": 1.0, 
+                                    "rank": idx + 1,
+                                    "tier": "picked"
+                                })
+                            
+                            result["judge_stats"][judge_name] = {
+                                "evaluations": evals,
+                                "cost": cost,
+                                "duration": duration,
+                                "model": model
+                            }
+
                         parsed = judge_data.get("parsed", {})
                         if parsed:
                             evaluations = parsed.get("candidates", [])

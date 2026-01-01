@@ -49,6 +49,7 @@ def main():
     parser.add_argument("--disable-openai-background", dest="openai_background", action="store_false", default=os.getenv("OPENAI_BACKGROUND", "true").lower() == "true", help="Disable OpenAI Background (Responses) API (Default: Enabled).")
     parser.add_argument("--enable-step-3-and-4", action="store_true", help="Enable Steps 3 and 4 (Narrow Search and Extended Check) which are disabled by default.")
     parser.add_argument("--judge-consistency-enable", action="store_true", help="Enable the Consistency Judge in the advanced solution picker (Disabled by default).")
+    parser.add_argument("--judge-duo-pick", action="store_true", help="Enable the Duo Pick (Meta-Conclusion) Judge in the advanced solution picker (Disabled by default).")
     parser.add_argument("--logs-directory", type=str, default="logs/", help="Directory to save log files (default: logs/).")
     parser.add_argument("--submissions-directory", type=str, default="submissions/", help="Directory to save submission files (default: submissions/).")
     parser.add_argument("--answers-directory", type=str, help="Optional directory containing answer files (with 'output' for test cases).")
