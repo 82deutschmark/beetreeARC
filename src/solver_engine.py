@@ -6,13 +6,13 @@ from src.solver.state import SolverState
 from src.solver.steps import run_step_1, run_step_3, run_step_5, check_is_solved
 
 # Re-export run_solver_mode for backward compatibility if imported elsewhere
-def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None, answer_path: Path = None, step_5_only: bool = False, objects_only: bool = False, force_step_5: bool = False, force_step_2: bool = False, judge_model: str = "gemini-3-high", old_pick_solution: bool = False, task_status=None, openai_background: bool = True, enable_step_3_and_4: bool = False, judge_consistency_enable: bool = False, codegen_params: str = "gpt-5.2-low=v1b,gpt-5.2-low=v4,gemini-3-low=v4", step1_models: str = "gpt-5.2-none,claude-opus-4.5-no-thinking", disable_step_1_standard_models: bool = False, logs_directory: str = "logs/"):
+def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: bool = False, run_timestamp: str = None, task_path: Path = None, answer_path: Path = None, step_5_only: bool = False, objects_only: bool = False, force_step_5: bool = False, force_step_2: bool = False, judge_model: str = "gpt-5.2-xhigh", old_pick_solution: bool = False, task_status=None, openai_background: bool = True, enable_step_3_and_4: bool = False, judge_consistency_enable: bool = False, judge_duo_pick_enable: bool = False, codegen_params: str = "gpt-5.2-low=v1b,gpt-5.2-low=v4,gemini-3-low=v4", step1_models: str = "gpt-5.2-none,claude-opus-4.5-no-thinking", disable_step_1_standard_models: bool = False, logs_directory: str = "logs/"):
     
     set_log_dir(logs_directory)
 
     # Initialize State
     try:
-        state = SolverState(task_id, test_index, verbose, is_testing, run_timestamp, task_path, answer_path, judge_model, old_pick_solution=old_pick_solution, task_status=task_status, openai_background=openai_background, judge_consistency_enable=judge_consistency_enable, codegen_prompt=None, logs_directory=logs_directory)
+        state = SolverState(task_id, test_index, verbose, is_testing, run_timestamp, task_path, answer_path, judge_model, old_pick_solution=old_pick_solution, task_status=task_status, openai_background=openai_background, judge_consistency_enable=judge_consistency_enable, judge_duo_pick_enable=judge_duo_pick_enable, codegen_prompt=None, logs_directory=logs_directory)
     except Exception as e:
         print(f"Error initializing solver state: {e}", file=sys.stderr)
         raise e
@@ -45,15 +45,15 @@ def run_solver_mode(task_id: str, test_index: int, verbose: int, is_testing: boo
             models_step3 = ["claude-opus-4.5-thinking-60000", "gemini-3-high", "gemini-3-high", "gpt-5.2-xhigh", "gpt-5.2-xhigh"]
             
             # Step 5 - Production
-            models_step5_deep = ["gpt-5.2-xhigh"]
-            models_step5_image = ["gpt-5.2-xhigh"] * 4
+            models_step5_deep = ["gpt-5.2-xhigh"] * 2
+            models_step5_image = ["gpt-5.2-xhigh"] * 6 + ["gemini-3-high"] * 4
             
             # Construct large codegen string
-            # 5x gemini-3-high v4 + 3x gpt-5.2-xhigh v1b + 6x gpt-5.2-xhigh v4
+            # 1x gemini-3-high v4 + 1x gpt-5.2-xhigh v1b + 5x gpt-5.2-xhigh v4
             parts = []
-            parts.extend(["gemini-3-high=v4"] * 5)
-            parts.extend(["gpt-5.2-xhigh=v1b"] * 3)
-            parts.extend(["gpt-5.2-xhigh=v4"] * 6)
+            parts.extend(["gemini-3-high=v4"] * 1)
+            parts.extend(["gpt-5.2-xhigh=v1b"] * 1)
+            parts.extend(["gpt-5.2-xhigh=v4"] * 5)
             params_step5_codegen = ",".join(parts)
 
             hint_generation_model = "gpt-5.2-xhigh"

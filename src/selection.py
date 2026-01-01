@@ -16,8 +16,8 @@ def is_solved(candidates_object) -> bool:
     percentage = (max_count / total_model_runs)
     
     # Condition 1: count > 25%
-    # Condition 2: count >= 5
-    if not (percentage > 0.25 and max_count >= 5):
+    # Condition 2: count >= 6
+    if not (percentage > 0.25 and max_count >= 6):
         return False
         
     # Condition 3: all other groups have exactly count=1
