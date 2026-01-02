@@ -157,13 +157,21 @@ def run_single_model(
         )
 
     except Exception as e:
-        error_msg = f"\n!!! CRITICAL ERROR in {model_name} ({run_id}) !!!\n{str(e)}\n{traceback.format_exc()}\n"
-        try:
-            os.write(2, error_msg.encode('utf-8', errors='replace'))
-        except OSError:
-            pass
+        # Check for specific OpenAI max token error
+        is_token_limit = "max_output_tokens" in str(e) and "OpenAI" in str(e)
 
-        print(f"{prefix} Error during execution: {e}", file=sys.stderr)
+        if is_token_limit:
+             # Brief summary to stdout
+             print(f"{prefix} ERR: OpenAI max_output_tokens")
+        else:
+            # Full critical error dump to stderr
+            error_msg = f"\n!!! CRITICAL ERROR in {model_name} ({run_id}) !!!\n{str(e)}\n{traceback.format_exc()}\n"
+            try:
+                os.write(2, error_msg.encode('utf-8', errors='replace'))
+            except OSError:
+                pass
+
+            print(f"{prefix} Error during execution: {e}", file=sys.stderr)
         
         if run_timestamp:
              log_failure(
