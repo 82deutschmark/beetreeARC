@@ -56,7 +56,7 @@ def run_app(
         if solver_testing:
             step1_models = "gpt-5.2-low,claude-opus-4.5-thinking-4000"
         else:
-            step1_models = "claude-opus-4.5-thinking-60000,claude-opus-4.5-thinking-60000,gemini-3-high,gpt-5.2-xhigh,gpt-5.2-xhigh"
+            step1_models = "claude-opus-4.5-thinking-60000,gemini-3-high,gpt-5.2-xhigh,gpt-5.2-xhigh"
 
     if codegen_params is None:
         if solver_testing:
