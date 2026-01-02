@@ -48,7 +48,6 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
             w_status = 10
             w_task = 10
             w_step = 5
-            w_phase = 15
             w_time = 6
             
             # 1. Status Column
@@ -78,17 +77,14 @@ def execute_task(args, task_path: Path, test_index: int, run_timestamp: str, rat
                 step_str = f"{step}/5"
             col_step = step_str.center(w_step)
 
-            # 4. Phase Column
-            col_phase = phase.ljust(w_phase)
-
             # 5. Time Column
             elapsed = time.time() - task_status.get("start_time", time.time())
             time_str = f"{elapsed:.1f}s"
             col_time = time_str.rjust(w_time)
 
-            return f"| {col_status} | {col_task} | {col_step} | {col_phase} | {col_time} | "
+            return f"| {col_status} | {col_task} | {col_step} | {col_time} | "
 
-        with PrefixedStdout(get_prefix, message_width=30):
+        with PrefixedStdout(get_prefix, message_width=50):
             try:
                 print(f"DEBUG: execute_task judge_duo_pick={args.judge_duo_pick}", file=sys.stderr)
                 predictions = run_solver_mode(
