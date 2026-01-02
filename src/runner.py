@@ -235,8 +235,8 @@ def run_app(
             # Print Table Header
             print("Legend: ⚡ Running   ⏳ Queued   ✅ Done")
             print()
-            print("| Status        | Task:Test  | Step  | Phase           | Time   | Message")
-            print("|---------------|------------|-------|-----------------|--------|------------------------------")
+            print("| Status        | Task:Test  | Step  | Time   | Message")
+            print("|---------------|------------|-------|--------|--------------------------------------------------")
 
             execute_task(args, task_path, args.test, run_timestamp, answer_path=answer_path)
         except FileNotFoundError as e:

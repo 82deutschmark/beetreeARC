@@ -19,8 +19,8 @@ def run_batch_execution(args, tasks_to_run, run_timestamp, rate_limit_scale, ans
     # Print Table Header
     print("Legend: ⚡ Running   ⏳ Queued   ✅ Done")
     print()
-    print("| Status        | Task:Test  | Step  | Phase           | Time   | Message")
-    print("|---------------|------------|-------|-----------------|--------|------------------------------")
+    print("| Status        | Task:Test  | Step  | Time   | Message")
+    print("|---------------|------------|-------|--------|--------------------------------------------------")
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.task_workers) as executor:
         future_to_task = {}
