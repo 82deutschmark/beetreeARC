@@ -47,6 +47,33 @@ def find_reasoning_for_candidate(candidate_run_ids, run_logs):
                             break
     return reasoning_map
 
+def resolve_task_path(task_id: str) -> Path:
+    # Known data directories
+    data_dirs = [
+        Path("data/evaluation-arc-agi-1"),
+        Path("data/evaluation-arc-agi-2"),
+        Path("data/training-arc-agi-2"),
+        # Fallback to what src/run_utils might have expected if different
+        Path("data/arc-agi-2-evaluation"),
+        Path("data/arc-agi-2-training"),
+    ]
+    
+    for d in data_dirs:
+        if d.exists():
+            candidate = d / f"{task_id}.json"
+            if candidate.exists():
+                return candidate
+                
+    # If not found, try src.run_utils.find_task_path as a last resort
+    # but wrap it in try/except because it might fail or raise error
+    try:
+        from src.run_utils import find_task_path
+        return find_task_path(task_id)
+    except Exception:
+        pass
+        
+    return None
+
 def main():
     parser = argparse.ArgumentParser(description="Replay Step Finish Judging Logic")
     parser.add_argument("--logs-dir", required=True, help="Directory containing log files")
@@ -179,7 +206,12 @@ def main():
             
         # Load Actual Task for Prompt Building / Verification
         try:
-            task = load_task(task_id)
+            task_path = resolve_task_path(task_id)
+            if not task_path:
+                print(f"Error: Could not find task file for {task_id}")
+                continue
+                
+            task = load_task(task_path)
             test_input = task.test[test_index-1].input
             train_examples = task.train
             ground_truth = task.test[test_index-1].output
