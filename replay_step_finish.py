@@ -58,10 +58,6 @@ def find_reasoning_for_candidate(candidate_run_ids, run_logs, verbose=False):
                          return sub_v[target_id]
         return None
 
-    if verbose:
-        print(f"DEBUG: Looking for run_ids: {candidate_run_ids}")
-        print(f"DEBUG: Loaded {len(run_logs)} log files.")
-
     for run_id in candidate_run_ids:
         found_entry = None
         for log_data in run_logs:
@@ -77,8 +73,6 @@ def find_reasoning_for_candidate(candidate_run_ids, run_logs, verbose=False):
                     if log_item.get("type") == "text":
                         reasoning_map[run_id] = log_item.get("content", "")
                         break
-        elif verbose:
-            print(f"DEBUG: Could not find entry for {run_id}")
     
     return reasoning_map
 
