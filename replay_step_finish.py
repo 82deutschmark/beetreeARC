@@ -109,6 +109,7 @@ def main():
     parser.add_argument("--judge", required=True, choices=["vote", "logic", "consistency", "duo"], help="Judge strategy to replay")
     parser.add_argument("--model", default="gpt-5.2-low", help="Model to use for the judge (ignored for 'vote')")
     parser.add_argument("--task-test-selection", help="Comma-separated list of TaskID:TestIndex pairs (e.g. '4e34c42c:2,88e364bc:1')")
+    parser.add_argument("--workers", type=int, default=20, help="Number of parallel workers (default: 20)")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     
     args = parser.parse_args()
@@ -146,27 +147,17 @@ def main():
         sys.exit(0)
         
     print(f"Found {len(finish_files)} total log files.")
-    print(f"Replaying with Judge: {args.judge.upper()} (Model: {args.model})")
+    print(f"Replaying with Judge: {args.judge.upper()} (Model: {args.model}) using {args.workers} workers")
     print("-" * 90)
     print(f"{'Task ID':<12} | {'Test':<5} | {'Candidate #1':<35} | {'Candidate #2':<35}")
     print("-" * 90)
 
-    total_tasks = 0
-    total_correct = 0
-    
-    for finish_file in finish_files:
+    def process_single_task(finish_file):
         # Parse filename: {timestamp}_{task_id}_{test_index}_step_finish.json
         parts = finish_file.name.split('_')
-        # Handle variable length timestamp parts (date_time)
-        # We know it ends with ..._{task_id}_{test_index}_step_finish.json
-        # The timestamp is everything before the task_id
-        
         try:
-            # Assuming standard format: YYYY-MM-DD_HH-MM-SS_taskID_testIdx_step_finish.json
-            # split by _ gives: [YYYY-MM-DD, HH-MM-SS, taskID, testIdx, step, finish.json]
-            # so task_id is at index -4, test_index at -3
             if len(parts) < 4:
-                continue
+                return None
                 
             task_id = parts[-4]
             test_index = int(parts[-3])
@@ -174,26 +165,21 @@ def main():
             
             # Apply Filter
             if selected_tasks and (task_id, test_index) not in selected_tasks:
-                continue
+                return None
             
         except Exception as e:
-            if args.verbose:
-                print(f"Skipping malformed filename {finish_file.name}: {e}")
-            continue
+            return None
 
         # Load finish data
         finish_data = load_json_file(finish_file)
         if not finish_data:
-            continue
+            return None
             
         candidates_object = finish_data.get("candidates_object", {})
         if not candidates_object:
-            if args.verbose:
-                print(f"No candidates for {task_id}")
-            continue
+            return None
             
         # 3. Data Reconstruction (Trace Gathering)
-        # Load associated step logs
         run_logs = []
         possible_steps = ["step_1", "step_5"]
         
@@ -207,20 +193,11 @@ def main():
         
         # Reconstruct Candidates List
         candidates_list = []
-        # The candidates_object in json has keys as stringified tuples, we need to parse them back or just use the values
-        # The values contain "grid", "models", "count"
-        
         for idx, (grid_str, val) in enumerate(candidates_object.items()):
-            # Parse grid from value, don't rely on key string parsing
             grid = val.get("grid")
-            if grid is None: 
-                continue
-                
+            if grid is None: continue
             models = val.get("models", [])
-            
-            # Find Reasoning
             reasoning = find_reasoning_for_candidate(models, run_logs, verbose=args.verbose)
-            
             candidates_list.append({
                 "id": idx,
                 "grid": grid,
@@ -231,213 +208,109 @@ def main():
             })
 
         if not candidates_list:
-            continue
+            return None
             
-        # Load Actual Task for Prompt Building / Verification
+        # Load Actual Task
         try:
             task_path = resolve_task_path(task_id)
-            if not task_path:
-                print(f"Error: Could not find task file for {task_id}")
-                continue
-                
+            if not task_path: return None
             task = load_task(task_path)
             test_input = task.test[test_index-1].input
             train_examples = task.train
             ground_truth = task.test[test_index-1].output
-        except Exception as e:
-            print(f"Error loading task {task_id}: {e}")
-            continue
+        except Exception:
+            return None
 
         # 4. Judge Execution
-        top_candidates = [] # Format: { "score_label": str, "is_correct": bool, "grid": ... }
+        top_candidates = []
         selection_metadata = {"judges": {}, "selection_process": {}}
         
         if args.judge == "vote":
-            # Sort by count descending
             candidates_list.sort(key=lambda x: x["count"], reverse=True)
             picks = candidates_list[:2]
-            
             selection_metadata["selection_process"] = {"type": "Vote Replay"}
             for i, c in enumerate(picks):
-                top_candidates.append({
-                    "score_label": f"{c['count']} votes",
-                    "is_correct": c.get("is_correct"), # Will verify later if None
-                    "grid": c["grid"]
-                })
+                top_candidates.append({"score_label": f"{c['count']} votes", "is_correct": c.get("is_correct"), "grid": c["grid"]})
                 selection_metadata["selection_process"][f"attempt_{i+1}"] = {"votes": c['count']}
             
         elif args.judge == "duo":
-            # Reconstruct reasoning_store for build_duo_pick_prompt
             reasoning_store = {}
-            for c in candidates_list:
-                reasoning_store.update(c["reasoning"])
-            
-            # Use total attempts from candidates counts
+            for c in candidates_list: reasoning_store.update(c["reasoning"])
             total_attempts = sum(c["count"] for c in candidates_list)
-            
             prompt = build_duo_pick_prompt(train_examples, test_input, candidates_list, reasoning_store, total_attempts)
-            
-            # Hack: Create a dummy duo_data dict to capture results
             duo_data = {"prompt": prompt}
-            
-            # Run Judge
-            # We explicitly ignore the returned grids from run_duo_pick_judge because it deduplicates.
-            # We want to extract ALL grids, including duplicates, for replay analysis.
-            _ = run_duo_pick_judge(
-                prompt, 
-                args.model, 
-                openai_client, 
-                anthropic_client, 
-                google_keys, 
-                duo_data, 
-                args.verbose, 
-                use_background=False
-            )
-            
+            _ = run_duo_pick_judge(prompt, args.model, openai_client, anthropic_client, google_keys, duo_data, args.verbose, use_background=False)
             selection_metadata["judges"]["duo_pick"] = duo_data
             selection_metadata["selection_process"] = {"type": "Duo Pick Judge Replay"}
-
             if "response" in duo_data and duo_data["response"]:
-                # Extract all grids from the raw response text without deduplication
                 all_extracted_grids = extract_all_grids(duo_data["response"])
-                
-                # Take the LAST two grids found (matching the intent of "last two picks")
-                # If there are fewer than 2, take what we have.
                 start_idx = max(0, len(all_extracted_grids) - 2)
                 picked_grids = all_extracted_grids[start_idx:]
-                
                 for i, grid in enumerate(picked_grids):
-                    # Match back to candidate
                     grid_tuple = tuple(tuple(r) for r in grid)
                     found_cand = None
                     for c in candidates_list:
-                        cand_tuple = tuple(tuple(r) for r in c["grid"])
-                        if cand_tuple == grid_tuple:
-                            found_cand = c
-                            break
-                    
+                        if tuple(tuple(r) for r in c["grid"]) == grid_tuple:
+                            found_cand = c; break
                     if found_cand:
-                        top_candidates.append({
-                            "score_label": f"Existing ({found_cand['count']} votes)",
-                            "is_correct": found_cand.get("is_correct"),
-                            "grid": found_cand["grid"]
-                        })
+                        top_candidates.append({"score_label": f"Existing ({found_cand['count']} votes)", "is_correct": found_cand.get("is_correct"), "grid": found_cand["grid"]})
                     else:
-                        # New grid generated by Duo
-                        top_candidates.append({
-                            "score_label": "Generated",
-                            "is_correct": None, # Verify later
-                            "grid": grid
-                        })
+                        top_candidates.append({"score_label": "Generated", "is_correct": None, "grid": grid})
                     selection_metadata["selection_process"][f"attempt_{i+1}"] = f"Judge Pick {i+1}"
             else:
-                 # Failed
                  selection_metadata["selection_process"]["error"] = "Duo Pick Judge Failed (No Response)"
 
         elif args.judge in ["logic", "consistency"]:
-            prompt = None
-            judge_type = ""
-            
-            if args.judge == "logic":
-                prompt = build_logic_prompt(train_examples, test_input, candidates_list)
-                judge_type = "Logic"
-            else:
-                prompt = build_consistency_prompt(train_examples, test_input, candidates_list)
-                judge_type = "Consistency"
-                
+            prompt = build_logic_prompt(train_examples, test_input, candidates_list) if args.judge == "logic" else build_consistency_prompt(train_examples, test_input, candidates_list)
             judge_data = {"prompt": prompt}
-            
-            res = run_judge(
-                judge_type,
-                prompt,
-                args.model,
-                openai_client,
-                anthropic_client,
-                google_keys,
-                judge_data,
-                args.verbose,
-                use_background=False
-            )
-            
+            res = run_judge("Logic" if args.judge == "logic" else "Consistency", prompt, args.model, openai_client, anthropic_client, google_keys, judge_data, args.verbose, use_background=False)
             selection_metadata["judges"][args.judge] = judge_data
-            selection_metadata["selection_process"] = {"type": f"{judge_type} Judge Replay"}
-
-            # Parse scores
-            scores = {} # map id -> score
-            if res and "candidates" in res:
-                for c_res in res["candidates"]:
-                    cid = c_res.get("candidate_id")
-                    scores[cid] = c_res.get("score", 0)
-            
-            # Sort by score descending
-            for c in candidates_list:
-                c["judge_score"] = scores.get(c["id"], 0)
-                
+            selection_metadata["selection_process"] = {"type": f"{args.judge.capitalize()} Judge Replay"}
+            scores = {c_res.get("candidate_id"): c_res.get("score", 0) for c_res in res.get("candidates", [])} if res else {}
+            for c in candidates_list: c["judge_score"] = scores.get(c["id"], 0)
             candidates_list.sort(key=lambda x: x["judge_score"], reverse=True)
             picks = candidates_list[:2]
-            
             for i, c in enumerate(picks):
-                 top_candidates.append({
-                    "score_label": f"Score: {c['judge_score']}",
-                    "is_correct": c.get("is_correct"),
-                    "grid": c["grid"]
-                })
+                 top_candidates.append({"score_label": f"Score: {c['judge_score']}", "is_correct": c.get("is_correct"), "grid": c["grid"]})
                  selection_metadata["selection_process"][f"attempt_{i+1}"] = {"score": c['judge_score']}
 
         # 5. Result Formatting
-        
-        # Verify correctness if needed
         is_any_correct = False
-        
-        cand_1_str = "-"
-        cand_2_str = "-"
-        
-        # Helper to format candidate string
         def format_cand(cand_data):
-            label = cand_data["score_label"]
             correct = cand_data.get("is_correct")
-            if correct is None:
-                if ground_truth is not None:
-                     correct = (cand_data["grid"] == ground_truth)
-                     cand_data["is_correct"] = correct
-            
+            if correct is None and ground_truth is not None:
+                correct = (cand_data["grid"] == ground_truth)
+                cand_data["is_correct"] = correct
             icon = "✅" if correct else "❌"
-            return f"{icon} {label}"
+            return f"{icon} {cand_data['score_label']}"
 
-        if len(top_candidates) >= 1:
-            cand_1_str = format_cand(top_candidates[0])
-            if top_candidates[0].get("is_correct"): is_any_correct = True
-            
-        if len(top_candidates) >= 2:
-            cand_2_str = format_cand(top_candidates[1])
-            if top_candidates[1].get("is_correct"): is_any_correct = True
+        cand_1_str = format_cand(top_candidates[0]) if len(top_candidates) >= 1 else "-"
+        if len(top_candidates) >= 1 and top_candidates[0].get("is_correct"): is_any_correct = True
+        cand_2_str = format_cand(top_candidates[1]) if len(top_candidates) >= 2 else "-"
+        if len(top_candidates) >= 2 and top_candidates[1].get("is_correct"): is_any_correct = True
 
-        total_tasks += 1
-        if is_any_correct:
-            total_correct += 1
-            
         print(f"{task_id:<12} | {test_index:<5} | {cand_1_str:<35} | {cand_2_str:<35}")
 
         # 6. Output Replay Log
         output_dir = Path("tmp_replay")
         output_dir.mkdir(exist_ok=True)
+        outcome = ("PASS" if is_any_correct else "FAIL") if ground_truth is not None else "SUBMITTED"
+        finish_log = {"candidates_object": candidates_object, "selection_details": selection_metadata, "picked_solutions": [c["grid"] for c in top_candidates], "correct_solution": ground_truth, "result": outcome}
+        output_path = output_dir / f"{timestamp_str}_{task_id}_{test_index}_step_finish.json"
+        with open(output_path, "w") as f: json.dump(finish_log, f, indent=4, default=lambda o: '<not serializable>')
         
-        outcome = "PASS" if is_any_correct else "FAIL"
-        if ground_truth is None:
-            outcome = "SUBMITTED"
-            
-        finish_log = {
-            "candidates_object": candidates_object,
-            "selection_details": selection_metadata,
-            "picked_solutions": [c["grid"] for c in top_candidates],
-            "correct_solution": ground_truth,
-            "result": outcome
-        }
+        return is_any_correct
+
+    total_tasks = 0
+    total_correct = 0
+    
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        results = list(executor.map(process_single_task, finish_files))
         
-        output_filename = f"{timestamp_str}_{task_id}_{test_index}_step_finish.json"
-        output_path = output_dir / output_filename
-        with open(output_path, "w") as f:
-            json.dump(finish_log, f, indent=4, default=lambda o: '<not serializable>')
+    for r in results:
+        if r is not None:
+            total_tasks += 1
+            if r: total_correct += 1
 
     print("-" * 90)
     if total_tasks > 0:
