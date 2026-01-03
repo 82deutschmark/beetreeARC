@@ -28,23 +28,41 @@ def find_reasoning_for_candidate(candidate_run_ids, run_logs):
     """
     Searches through loaded run logs (step 1 and step 5) to find the reasoning
     associated with any of the run_ids that produced this candidate.
+    Handles both flat (Step 1) and nested (Step 5) log structures.
     """
     reasoning_map = {}
     
+    # Pre-process logs into a single flat lookup if possible or search smarter
+    # To keep it simple, we'll just search recursively for each run_id
+    
+    def search_in_dict(d, target_id):
+        if target_id in d:
+            return d[target_id]
+        
+        for k, v in d.items():
+            if isinstance(v, dict):
+                # Optimization: Step 5 strategies are 1 level deep. 
+                # Deep recursive search might be slow if logs are huge, but depth is usually shallow.
+                if target_id in v:
+                    return v[target_id]
+        return None
+
     for run_id in candidate_run_ids:
-        # Search in all loaded log dictionaries
+        found_entry = None
         for log_data in run_logs:
-            if run_id in log_data:
-                entry = log_data[run_id]
-                # Try to get the full response
-                if "Full raw LLM response" in entry:
-                    reasoning_map[run_id] = entry["Full raw LLM response"]
-                elif "detailed_logs" in entry and entry["detailed_logs"]:
-                    # Fallback for deep thinking or other structured logs
-                    for log_item in entry["detailed_logs"]:
-                        if log_item.get("type") == "text":
-                            reasoning_map[run_id] = log_item.get("content", "")
-                            break
+            found_entry = search_in_dict(log_data, run_id)
+            if found_entry:
+                break
+        
+        if found_entry:
+            if "Full raw LLM response" in found_entry:
+                reasoning_map[run_id] = found_entry["Full raw LLM response"]
+            elif "detailed_logs" in found_entry and found_entry["detailed_logs"]:
+                for log_item in found_entry["detailed_logs"]:
+                    if log_item.get("type") == "text":
+                        reasoning_map[run_id] = log_item.get("content", "")
+                        break
+    
     return reasoning_map
 
 def resolve_task_path(task_id: str) -> Path:
