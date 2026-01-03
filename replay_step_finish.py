@@ -110,6 +110,7 @@ def main():
     parser.add_argument("--model", default="gpt-5.2-low", help="Model to use for the judge (ignored for 'vote')")
     parser.add_argument("--task-test-selection", help="Comma-separated list of TaskID:TestIndex pairs (e.g. '4e34c42c:2,88e364bc:1')")
     parser.add_argument("--workers", type=int, default=20, help="Number of parallel workers (default: 20)")
+    parser.add_argument("--output-dir", default="tmp_replay", help="Directory to save replayed logs (default: tmp_replay)")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     
     args = parser.parse_args()
