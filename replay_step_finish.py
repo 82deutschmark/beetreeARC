@@ -257,7 +257,7 @@ def main():
                 google_keys, 
                 duo_data, 
                 args.verbose, 
-                openai_background=False
+                use_background=False
             )
             
             if res_grids:
@@ -310,7 +310,7 @@ def main():
                 google_keys,
                 judge_data,
                 args.verbose,
-                openai_background=False
+                use_background=False
             )
             
             # Parse scores
