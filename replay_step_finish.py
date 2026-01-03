@@ -118,9 +118,9 @@ def main():
         
     print(f"Found {len(finish_files)} total log files.")
     print(f"Replaying with Judge: {args.judge.upper()} (Model: {args.model})")
-    print("-" * 140)
-    print(f"{'Task ID':<12} | {'Test':<5} | {'Any Correct?':<12} | {'Candidate #1 (Score/Votes)':<35} | {'Candidate #2 (Score/Votes)':<35}")
-    print("-" * 140)
+    print("-" * 90)
+    print(f"{'Task ID':<12} | {'Test':<5} | {'Candidate #1':<35} | {'Candidate #2':<35}")
+    print("-" * 90)
 
     total_tasks = 0
     total_correct = 0
@@ -366,11 +366,9 @@ def main():
         if is_any_correct:
             total_correct += 1
             
-        status_icon = "✅" if is_any_correct else "❌"
-        
-        print(f"{task_id:<12} | {test_index:<5} | {status_icon:<12} | {cand_1_str:<35} | {cand_2_str:<35}")
+        print(f"{task_id:<12} | {test_index:<5} | {cand_1_str:<35} | {cand_2_str:<35}")
 
-    print("-" * 140)
+    print("-" * 90)
     if total_tasks > 0:
         acc = (total_correct / total_tasks) * 100
         print(f"Summary: {total_correct}/{total_tasks} Correct ({acc:.2f}%)")
