@@ -220,19 +220,22 @@ def main():
             continue
 
         # 4. Judge Execution
-        top_candidates = [] # Format: { "score_label": str, "is_correct": bool }
+        top_candidates = [] # Format: { "score_label": str, "is_correct": bool, "grid": ... }
+        selection_metadata = {"judges": {}, "selection_process": {}}
         
         if args.judge == "vote":
             # Sort by count descending
             candidates_list.sort(key=lambda x: x["count"], reverse=True)
             picks = candidates_list[:2]
             
-            for c in picks:
+            selection_metadata["selection_process"] = {"type": "Vote Replay"}
+            for i, c in enumerate(picks):
                 top_candidates.append({
                     "score_label": f"{c['count']} votes",
                     "is_correct": c.get("is_correct"), # Will verify later if None
                     "grid": c["grid"]
                 })
+                selection_metadata["selection_process"][f"attempt_{i+1}"] = {"votes": c['count']}
             
         elif args.judge == "duo":
             # Reconstruct reasoning_store for build_duo_pick_prompt
@@ -260,8 +263,11 @@ def main():
                 use_background=False
             )
             
+            selection_metadata["judges"]["duo_pick"] = duo_data
+            selection_metadata["selection_process"] = {"type": "Duo Pick Judge Replay"}
+
             if res_grids:
-                for grid in res_grids:
+                for i, grid in enumerate(res_grids):
                     # Match back to candidate
                     grid_tuple = tuple(tuple(r) for r in grid)
                     found_cand = None
@@ -284,9 +290,10 @@ def main():
                             "is_correct": None, # Verify later
                             "grid": grid
                         })
+                    selection_metadata["selection_process"][f"attempt_{i+1}"] = f"Judge Pick {i+1}"
             else:
                  # Failed
-                 pass
+                 selection_metadata["selection_process"]["error"] = "Duo Pick Judge Failed"
 
         elif args.judge in ["logic", "consistency"]:
             prompt = None
@@ -313,6 +320,9 @@ def main():
                 use_background=False
             )
             
+            selection_metadata["judges"][args.judge] = judge_data
+            selection_metadata["selection_process"] = {"type": f"{judge_type} Judge Replay"}
+
             # Parse scores
             scores = {} # map id -> score
             if res and "candidates" in res:
@@ -327,12 +337,13 @@ def main():
             candidates_list.sort(key=lambda x: x["judge_score"], reverse=True)
             picks = candidates_list[:2]
             
-            for c in picks:
+            for i, c in enumerate(picks):
                  top_candidates.append({
                     "score_label": f"Score: {c['judge_score']}",
                     "is_correct": c.get("is_correct"),
                     "grid": c["grid"]
                 })
+                 selection_metadata["selection_process"][f"attempt_{i+1}"] = {"score": c['judge_score']}
 
         # 5. Result Formatting
         
@@ -367,6 +378,27 @@ def main():
             total_correct += 1
             
         print(f"{task_id:<12} | {test_index:<5} | {cand_1_str:<35} | {cand_2_str:<35}")
+
+        # 6. Output Replay Log
+        output_dir = Path("tmp_replay")
+        output_dir.mkdir(exist_ok=True)
+        
+        outcome = "PASS" if is_any_correct else "FAIL"
+        if ground_truth is None:
+            outcome = "SUBMITTED"
+            
+        finish_log = {
+            "candidates_object": candidates_object,
+            "selection_details": selection_metadata,
+            "picked_solutions": [c["grid"] for c in top_candidates],
+            "correct_solution": ground_truth,
+            "result": outcome
+        }
+        
+        output_filename = f"{timestamp_str}_{task_id}_{test_index}_step_finish.json"
+        output_path = output_dir / output_filename
+        with open(output_path, "w") as f:
+            json.dump(finish_log, f, indent=4, default=lambda o: '<not serializable>')
 
     print("-" * 90)
     if total_tasks > 0:
