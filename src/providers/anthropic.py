@@ -10,7 +10,7 @@ from anthropic import Anthropic
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
 from src.logging import get_logger
-from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError
+from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError, RateLimitProviderError
 
 logger = get_logger("providers.anthropic")
 
@@ -51,7 +51,10 @@ def call_anthropic(
                 return stream.get_final_message()
         except Exception as e:
             # 1. Known SDK Retryables
-            if isinstance(e, (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.InternalServerError)):
+            if isinstance(e, anthropic.RateLimitError):
+                raise RateLimitProviderError(f"Anthropic Rate Limit (Model: {model}): {e}") from e
+
+            if isinstance(e, (anthropic.APIConnectionError, anthropic.InternalServerError)):
                 raise RetryableProviderError(f"Anthropic Transient Error (Model: {model}): {e}") from e
             
             # 2. Known SDK Non-Retryables

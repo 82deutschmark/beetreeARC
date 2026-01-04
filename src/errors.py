@@ -10,6 +10,11 @@ class RetryableProviderError(ProviderError):
     Includes transient network issues, rate limits, and server errors.
     """
 
+class RateLimitProviderError(RetryableProviderError):
+    """
+    Specific error for 429 Rate Limits, allowing for higher retry counts.
+    """
+
 class NonRetryableProviderError(ProviderError):
     """
     Terminal errors that should not be retried.
