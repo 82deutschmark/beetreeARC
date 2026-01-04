@@ -88,13 +88,9 @@ def calculate_cost(model_config: ModelConfig, response: ModelResponse) -> float:
         0, response.prompt_tokens - response.cached_tokens
     )
 
-    # Calculate total output tokens for billing
-    # For OpenAI, completion_tokens (billed output) already includes reasoning tokens.
-    if model_config.provider == "openai":
-        billed_output_tokens = response.completion_tokens
-    else:
-        # For Gemini (and potentially others), reasoning is reported separately or needs summing
-        billed_output_tokens = response.completion_tokens + response.thought_tokens
+    # Calculate total output tokens for billing.
+    # We assume completion_tokens already includes any reasoning/thought tokens for all providers.
+    billed_output_tokens = response.completion_tokens
 
     cost = (
         (non_cached_input / 1_000_000 * pricing["input"])
