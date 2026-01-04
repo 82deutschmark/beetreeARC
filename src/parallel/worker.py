@@ -159,14 +159,16 @@ def run_single_model(
     except Exception as e:
         # Check for concise error types
         error_str = str(e)
+        error_lower = error_str.lower()
         concise_msg = None
-        if "OpenAI" in error_str and ("max_output_tokens" in error_str or "hit token limit" in error_str):
+        
+        if "openai" in error_lower and ("max_output_tokens" in error_lower or "hit token limit" in error_lower):
             concise_msg = "ERR: OpenAI max_output_tokens"
-        elif "OpenAI" in error_str and "timed out after" in error_str:
+        elif "openai" in error_lower and "timed out after" in error_lower:
             concise_msg = "ERR: OpenAI Timed Out 3600s"
-        elif "violating our usage policy" in error_str:
+        elif "violating our usage policy" in error_lower:
             concise_msg = "ERR: OpenAI Policy Violation"
-        elif "claude-opus" in error_str and ("peer closed connection" in error_str or "incomplete chunked read" in error_str):
+        elif "claude-opus" in error_lower and ("peer closed connection" in error_lower or "incomplete chunked read" in error_lower):
             concise_msg = "ERR: Claude closed connection"
 
         if concise_msg:
@@ -180,7 +182,7 @@ def run_single_model(
             except OSError:
                 pass
 
-            print(f"{prefix} Error during execution: {e}", file=sys.stderr)
+            print(f"Error during execution: {e}", file=sys.stderr)
         
         if run_timestamp:
              log_failure(
