@@ -15,3 +15,6 @@ tests/**/__pycache__/
 .DS_Store
 **/.DS_Store
 logs_big/
+logs_parser/logs_random_15/
+logs_parser/logs_safe_15/
+logs_parser/prompt.txt

@@ -52,6 +52,7 @@ def submit_job(runner: 'OpenAIRequestRunner', prompt: str, image_path: Optional[
     return job.id
 
 def poll_job(runner: 'OpenAIRequestRunner', job_id: str, prompt: str, image_path: Optional[str], start_attempt_ts: float):
+    # Poll until done or timeout
     max_wait_time = 3600  # 60 minutes
     start_time = time.time()
     poll_interval_base = 2.0
