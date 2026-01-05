@@ -115,7 +115,7 @@ def run_with_retry(
             retry_tag = f"Retry {attempt + 1}/{current_max_retries}:"
             if "OpenAI Background Job" in error_str:
                 if "timed out after" in error_str:
-                    concise_msg = f"Err: {retry_tag} OpenAI Timeout 3600s"
+                    concise_msg = f"Err: {retry_tag} OpenAI Timeout 3300s"
                     is_concise = True
                 elif "hit token limit" in error_str or "max_output_tokens" in error_str:
                     concise_msg = f"Err: {retry_tag} OpenAI Max Tokens"
@@ -149,6 +149,9 @@ def run_with_retry(
                 sleep_time = retry_delays[attempt]
             else:
                 sleep_time = retry_delays[-1]
+            
+            # Randomize delay (±50s) to prevent thundering herd
+            sleep_time = sleep_time + random.uniform(-50.0, 50.0)
             
             if isinstance(e, UnknownProviderError):
                 logger.error(f"{log_prefix}!!! UNKNOWN ERROR (after {duration:.2f}s) - RETRYING (Attempt {attempt + 1}/{current_max_retries}) !!!")

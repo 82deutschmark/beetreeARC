@@ -120,9 +120,13 @@ HINT_START
 HINT_END
 """
 
-    openai_key, claude_key, google_keys = get_api_keys()
-    http_client = get_http_client(timeout=3600.0)
-    openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
+        openai_key, claude_key, google_keys = get_api_keys()
+
+        http_client = get_http_client(timeout=3300.0)
+
+        
+
+        openai_client = OpenAI(api_key=openai_key, http_client=http_client) if openai_key else None
     anthropic_client = Anthropic(api_key=claude_key, http_client=http_client) if claude_key else None
     # google_client instantiation removed as we now pass keys directly
 

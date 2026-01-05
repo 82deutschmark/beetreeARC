@@ -70,7 +70,7 @@ class OpenAIRequestRunner:
         kwargs = {
             "model": self.model,
             "input": [{"role": "user", "content": content}],
-            "timeout": 3600,
+            "timeout": 3300,
             "stream": True,
         }
         if self.reasoning_effort != "none":
@@ -204,7 +204,7 @@ class OpenAIRequestRunner:
                 "model": self.model,
                 "previous_response_id": prev_resp._raw_response.id,
                 "input": [{"role": "user", "content": prompt}],
-                "timeout": 3600
+                "timeout": 3300
             }
             
             def _create_safe():

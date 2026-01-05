@@ -49,9 +49,9 @@ def call_gemini(
 
     # Instantiate a local client for this call (thread-safe) using shared configuration
     http_client = get_http_client(
-        timeout=3600.0,
+        timeout=3300.0,
         transport=KeepAliveTransport(retries=3),
-        limits=httpx.Limits(keepalive_expiry=3600)
+        limits=httpx.Limits(keepalive_expiry=3300)
     )
     
     # Pass the custom client to the Google GenAI SDK
@@ -90,19 +90,19 @@ def call_gemini(
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(_inner_send)
                 # Enforce hard wall-clock timeout (slightly larger than socket timeout)
-                return future.result(timeout=3660)
+                return future.result(timeout=3360)
         except concurrent.futures.TimeoutError as e:
             # LOUD DEBUG LOGGING
             err_msg = (
                 f"\n{'!'*50}\n"
-                f"!!! GEMINI HARD TIMEOUT TRIGGERED (3660s) !!!\n"
+                f"!!! GEMINI HARD TIMEOUT TRIGGERED (3360s) !!!\n"
                 f"!!! Key Index: {key_index} | Model: {model}\n"
                 f"!!! The call hung indefinitely. Killing and retrying.\n"
                 f"{'!'*50}\n"
             )
             print(err_msg, file=sys.stderr)
             sys.stderr.flush()
-            raise RetryableProviderError(f"Gemini Hard Wall-Clock Timeout (Key #{key_index}, Model: {model}): Call exceeded 3660s") from e
+            raise RetryableProviderError(f"Gemini Hard Wall-Clock Timeout (Key #{key_index}, Model: {model}): Call exceeded 3360s") from e
         except Exception as e:
             # 1. Known SDK Retryables
             if isinstance(e, (google_exceptions.ResourceExhausted, google_exceptions.ServiceUnavailable, google_exceptions.InternalServerError, google_exceptions.TooManyRequests)):

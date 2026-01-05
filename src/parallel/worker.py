@@ -165,7 +165,7 @@ def run_single_model(
         if "openai" in error_lower and ("max_output_tokens" in error_lower or "hit token limit" in error_lower):
             concise_msg = "Err: FAIL: OpenAI Max Tokens"
         elif "openai" in error_lower and "timed out after" in error_lower:
-            concise_msg = "Err: FAIL: OpenAI Timeout 3600s"
+            concise_msg = "Err: FAIL: OpenAI Timeout 3300s"
         elif "violating our usage policy" in error_lower:
             concise_msg = "Err: FAIL: OpenAI Policy Violation"
         elif "server_error" in error_lower:
