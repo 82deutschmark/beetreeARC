@@ -86,7 +86,7 @@ def extract_code_from_llm_response(llm_code: str) -> str | None:
                 
     return code if code and "def solver" in code else None
 
-def parse_logs(directory, codegen_analysis=None, all_analysis=None):
+def parse_logs(directory, codegen_analysis=None, all_analysis=None, duo_judge_analysis_only=False):
     if not os.path.isdir(directory):
         print(f"Error: Directory '{directory}' does not exist.")
         return
@@ -171,6 +171,102 @@ def parse_logs(directory, codegen_analysis=None, all_analysis=None):
                     task_data[key]["step_statuses"][step_name] = True
                 
                 task_data[key]["steps"][step_name] = data["calls"]
+
+    if duo_judge_analysis_only:
+        print("Task:Test,Status,Duo Judge Points,Voting Only,Top Grid WxH,Judge Top2,Vote Top2,Union Top1")
+        
+        judge_top2_count = 0
+        vote_top2_count = 0
+        union_top1_count = 0
+        
+        for (task_id, test_id), data in sorted(task_data.items()):
+            finish_data = data.get("finish_data")
+            status_val = data.get("finish_status")
+            status = "SOLVED" if status_val in ["PASS", "SOLVED"] else "FAILED"
+            
+            candidates_obj = {}
+            if finish_data and isinstance(finish_data, dict):
+                candidates_obj = finish_data.get("candidates_object", {})
+            candidates_keys = list(candidates_obj.keys()) if isinstance(candidates_obj, dict) else []
+
+            points_list = []
+            top_grid_dims = "N/A"
+            judge_correct_flags = []
+            
+            if finish_data and isinstance(finish_data, dict):
+                 sel_process = finish_data.get("selection_process")
+                 if not sel_process and "selection_details" in finish_data:
+                      sel_process = finish_data["selection_details"].get("selection_process")
+                 
+                 if isinstance(sel_process, dict):
+                     scoreboard = sel_process.get("scoreboard", [])
+                     if isinstance(scoreboard, list):
+                         # Extract dims from top candidate
+                         if len(scoreboard) > 0 and isinstance(scoreboard[0], dict) and "grid" in scoreboard[0]:
+                             g = scoreboard[0]["grid"]
+                             if isinstance(g, list) and len(g) > 0 and isinstance(g[0], list):
+                                 top_grid_dims = f"{len(g[0])}x{len(g)}"
+
+                         correct_sol = finish_data.get("correct_solution")
+                         for item in scoreboard:
+                             if isinstance(item, dict) and "points" in item:
+                                 pts = str(item["points"])
+                                 raw_origin = item.get("origin", "Unknown")
+                                 
+                                 origin = raw_origin
+                                 if "Existing" in raw_origin:
+                                     cid = item.get("matched_original_candidate_id")
+                                     vote_count = "?"
+                                     if cid is not None and isinstance(cid, int) and 0 <= cid < len(candidates_keys):
+                                         vote_count = candidates_obj[candidates_keys[cid]].get("count", 0)
+                                     origin = f"E:{vote_count}"
+                                 elif "Synthesized" in raw_origin:
+                                     origin = "S"
+                                 
+                                 is_correct = False
+                                 if correct_sol and "grid" in item:
+                                     is_correct = (item["grid"] == correct_sol)
+                                 
+                                 judge_correct_flags.append(is_correct)
+                                 marker = "*" if is_correct else ""
+                                 points_list.append(f"{pts}{marker} ({origin})")
+            
+            # Voting from candidates_object
+            voting_data = []
+            if isinstance(candidates_obj, dict):
+                for cand in candidates_obj.values():
+                    if isinstance(cand, dict):
+                        count = cand.get("count", 0)
+                        is_correct = cand.get("is_correct", False)
+                        voting_data.append({"votes": count, "is_correct": is_correct})
+            
+            voting_data.sort(key=lambda x: x["votes"], reverse=True)
+            top_2_voting = voting_data[:2]
+            voting_strs = [f"{v['votes']}{'*' if v['is_correct'] else ''}" for v in top_2_voting]
+            
+            # Calculate new metrics
+            judge_top2 = any(judge_correct_flags[:2])
+            vote_top2 = False
+            if len(voting_data) > 0 and voting_data[0]['is_correct']: vote_top2 = True
+            if len(voting_data) > 1 and voting_data[1]['is_correct']: vote_top2 = True
+            
+            judge_top1_correct = judge_correct_flags[0] if judge_correct_flags else False
+            vote_top1_correct = voting_data[0]['is_correct'] if voting_data else False
+            union_top1 = judge_top1_correct or vote_top1_correct
+            
+            if judge_top2: judge_top2_count += 1
+            if vote_top2: vote_top2_count += 1
+            if union_top1: union_top1_count += 1
+
+            points_str = "[" + ", ".join(points_list) + "]"
+            voting_str = "[" + ", ".join(voting_strs) + "]"
+            print(f"{task_id}:{test_id},{status},{points_str},{voting_str},{top_grid_dims},{str(judge_top2).upper()},{str(vote_top2).upper()},{str(union_top1).upper()}")
+        
+        print(f"\nSummary:")
+        print(f"Judge Top2 TRUE: {judge_top2_count}")
+        print(f"Vote Top2 TRUE: {vote_top2_count}")
+        print(f"Union Top1 TRUE: {union_top1_count}")
+        return
 
     # If Analysis requested, perform it and exit
     if analysis_mode:
@@ -391,9 +487,10 @@ def main():
     parser.add_argument("directory", help="Path to the logs directory")
     parser.add_argument("--codegen_analysis", help="Perform specialized analysis for a specific task:test (e.g. '221dfab4:1'), only including codegen PASS solutions.", default=None)
     parser.add_argument("--all_analysis", help="Perform comprehensive analysis for a specific task:test, including all solvers (codegen filtered to PASS).", default=None)
+    parser.add_argument("--duo-judge-analysis-only", action="store_true", help="Perform specialized duo judge analysis for all tasks.", default=False)
     args = parser.parse_args()
 
-    parse_logs(args.directory, args.codegen_analysis, args.all_analysis)
+    parse_logs(args.directory, args.codegen_analysis, args.all_analysis, args.duo_judge_analysis_only)
 
 if __name__ == "__main__":
     main()
