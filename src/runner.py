@@ -75,6 +75,8 @@ def run_app(
         enable_step_3_and_4=enable_step_3_and_4,
         judge_consistency_enable=judge_consistency_enable
     )
+    print("THIS IS THE OLD VERSION, USE THE V7 BRANCH")
+    return
 
     if os.getenv("ARC_AGI_INSECURE_SSL", "").lower() == "true":
         print("WARNING: SSL verification disabled (ARC_AGI_INSECURE_SSL=true)")
