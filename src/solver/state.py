@@ -125,7 +125,7 @@ class SolverState:
                         
                         self.usage_stats["prompt_cost"] += p_cost
                         self.usage_stats["completion_cost"] += c_cost
-                        self.usage_stats["total_cost"] += (p_cost + c_cost)
+                        self.usage_stats["total_cost"] += res.get("cost", 0)
                 except Exception as e:
                     pass # Fallback or ignore cost breakdown errors
                 
