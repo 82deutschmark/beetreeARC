@@ -5,12 +5,13 @@ import random
 from typing import Optional
 import PIL.Image
 import httpx
+import concurrent.futures
 
 from google import genai
 from google.genai import types
 from google.api_core import exceptions as google_exceptions
 
-from src.config import get_api_keys, get_http_client
+from src.config import get_api_keys, get_http_client, KeepAliveTransport
 from src.types import ModelConfig, ModelResponse
 from src.llm_utils import run_with_retry, orchestrate_two_stage
 from src.logging import get_logger
@@ -30,6 +31,7 @@ def call_gemini(
     run_timestamp: str = None,
     model_alias: str = None,
     timing_tracker: list[dict] = None,
+    enable_code_execution: bool = False,
 ) -> ModelResponse:
     
     model = config.base_model
@@ -47,9 +49,9 @@ def call_gemini(
 
     # Instantiate a local client for this call (thread-safe) using shared configuration
     http_client = get_http_client(
-        timeout=3600.0,
-        transport=httpx.HTTPTransport(retries=3),
-        limits=httpx.Limits(keepalive_expiry=3600)
+        timeout=3300.0,
+        transport=KeepAliveTransport(retries=3),
+        limits=httpx.Limits(keepalive_expiry=3300)
     )
     
     # Pass the custom client to the Google GenAI SDK
@@ -59,9 +61,15 @@ def call_gemini(
     # Typically the SDK accepts "low" / "high" strings for this field if typed as ThinkingLevel
     level_val = "low" if thinking_level == "low" else "high"
     
+    # Configure tools
+    tools = []
+    if enable_code_execution:
+        tools.append(types.Tool(code_execution=types.ToolCodeExecution()))
+
     gen_config = types.GenerateContentConfig(
         temperature=1.0,
         max_output_tokens=65536,
+        tools=tools if tools else None,
         thinking_config=types.ThinkingConfig(
             include_thoughts=True, 
             thinking_level=level_val
@@ -72,11 +80,29 @@ def call_gemini(
     chat = client.chats.create(model=model, config=gen_config)
 
     def _safe_send(message):
-        try:
+        def _inner_send():
             # Suppress Pydantic serialization warnings from the SDK
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=UserWarning, message=".*Pydantic serializer warnings.*")
                 return chat.send_message(message)
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_inner_send)
+                # Enforce hard wall-clock timeout (slightly larger than socket timeout)
+                return future.result(timeout=3360)
+        except concurrent.futures.TimeoutError as e:
+            # LOUD DEBUG LOGGING
+            err_msg = (
+                f"\n{'!'*50}\n"
+                f"!!! GEMINI HARD TIMEOUT TRIGGERED (3360s) !!!\n"
+                f"!!! Key Index: {key_index} | Model: {model}\n"
+                f"!!! The call hung indefinitely. Killing and retrying.\n"
+                f"{'!'*50}\n"
+            )
+            print(err_msg, file=sys.stderr)
+            sys.stderr.flush()
+            raise RetryableProviderError(f"Gemini Hard Wall-Clock Timeout (Key #{key_index}, Model: {model}): Call exceeded 3360s") from e
         except Exception as e:
             # 1. Known SDK Retryables
             if isinstance(e, (google_exceptions.ResourceExhausted, google_exceptions.ServiceUnavailable, google_exceptions.InternalServerError, google_exceptions.TooManyRequests)):
@@ -121,16 +147,45 @@ def call_gemini(
         
         try:
             text_parts = []
+            detailed_logs = []
             if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
-                    if part.text: text_parts.append(part.text)
+                    if part.thought:
+                        detailed_logs.append({"type": "thought", "content": part.thought})
+                    
+                    if part.executable_code:
+                        detailed_logs.append({
+                            "type": "code", 
+                            "code": part.executable_code.code,
+                            "language": part.executable_code.language
+                        })
+                    
+                    if part.code_execution_result:
+                        detailed_logs.append({
+                            "type": "execution_result",
+                            "outcome": part.code_execution_result.outcome,
+                            "output": part.code_execution_result.output
+                        })
+
+                    if part.function_call:
+                        detailed_logs.append({
+                            "type": "function_call",
+                            "name": part.function_call.name,
+                            "args": part.function_call.args
+                        })
+
+                    if part.text:
+                        text_parts.append(part.text)
+                        detailed_logs.append({"type": "text", "content": part.text})
             
             usage = response.usage_metadata
             return ModelResponse(
                 text="".join(text_parts).strip(),
-                prompt_tokens=usage.prompt_token_count,
+                prompt_tokens=usage.prompt_token_count if usage and usage.prompt_token_count is not None else 0,
                 cached_tokens=0,
-                completion_tokens=usage.candidates_token_count,
+                completion_tokens=usage.candidates_token_count if usage and usage.candidates_token_count is not None else 0,
+                thought_tokens=getattr(usage, "thoughts_token_count", 0) if usage else 0,
+                detailed_logs=detailed_logs
             )
         except Exception as e:
              raise RuntimeError(f"Failed to parse Gemini response: {e} - Raw: {response}")
@@ -149,16 +204,45 @@ def call_gemini(
             )
             
             text_parts = []
+            detailed_logs = []
             if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
-                    if part.text: text_parts.append(part.text)
+                    if part.thought:
+                        detailed_logs.append({"type": "thought", "content": part.thought})
+                    
+                    if part.executable_code:
+                        detailed_logs.append({
+                            "type": "code", 
+                            "code": part.executable_code.code,
+                            "language": part.executable_code.language
+                        })
+                    
+                    if part.code_execution_result:
+                        detailed_logs.append({
+                            "type": "execution_result",
+                            "outcome": part.code_execution_result.outcome,
+                            "output": part.code_execution_result.output
+                        })
+
+                    if part.function_call:
+                        detailed_logs.append({
+                            "type": "function_call",
+                            "name": part.function_call.name,
+                            "args": part.function_call.args
+                        })
+
+                    if part.text:
+                        text_parts.append(part.text)
+                        detailed_logs.append({"type": "text", "content": part.text})
             
             usage = response.usage_metadata
             return ModelResponse(
                 text="".join(text_parts).strip(),
-                prompt_tokens=usage.prompt_token_count,
+                prompt_tokens=usage.prompt_token_count if usage and usage.prompt_token_count is not None else 0,
                 cached_tokens=0,
-                completion_tokens=usage.candidates_token_count,
+                completion_tokens=usage.candidates_token_count if usage and usage.candidates_token_count is not None else 0,
+                thought_tokens=getattr(usage, "thoughts_token_count", 0) if usage else 0,
+                detailed_logs=detailed_logs
             )
         except Exception as e:
             logger.error(f"Step 2 strategy extraction failed: {e}")

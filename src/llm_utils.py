@@ -5,13 +5,22 @@ from typing import Callable, Any, Optional
 
 from src.types import ModelResponse
 from src.logging import get_logger, log_failure
-from src.errors import RetryableProviderError, UnknownProviderError, NonRetryableProviderError
+from src.errors import RetryableProviderError, UnknownProviderError, NonRetryableProviderError, RateLimitProviderError
 
 logger = get_logger("llm_utils")
 
+_RETRIES_ENABLED = True
+
+def set_retries_enabled(enabled: bool):
+    global _RETRIES_ENABLED
+    _RETRIES_ENABLED = enabled
+
+def get_retries_enabled() -> bool:
+    return _RETRIES_ENABLED
+
 def run_with_retry(
     func: Callable[[], Any],
-    max_retries: int = 3,
+    max_retries: int = 2,
     task_id: str = None,
     test_index: int = None,
     run_timestamp: str = None,
@@ -21,11 +30,14 @@ def run_with_retry(
 ) -> Any:
     """
     Generic retry loop helper using RetryableProviderError.
-    Retries: 2 times (3 total attempts).
-    Sleeps: 60s, 300s.
+    Retries: 1 time (2 total attempts).
+    Sleeps: 300s.
     """
+    if not _RETRIES_ENABLED:
+        max_retries = 1
+
     # Fixed delays for the 2 retries
-    retry_delays = [60, 300]
+    retry_delays = [300]
     
     # Construct log prefix
     log_prefix = ""
@@ -35,7 +47,10 @@ def run_with_retry(
             log_prefix += f":{test_index}"
         log_prefix += "] "
 
-    for attempt in range(max_retries):
+    attempt = 0
+    current_max_retries = max_retries
+
+    while attempt < current_max_retries:
         start_ts = time.perf_counter()
         try:
             result = func()
@@ -63,6 +78,10 @@ def run_with_retry(
             raise e
             
         except RetryableProviderError as e:
+            # DYNAMIC RETRY ADJUSTMENT FOR RATE LIMITS
+            if isinstance(e, RateLimitProviderError) and _RETRIES_ENABLED:
+                current_max_retries = max(current_max_retries, 10)
+
             duration = time.perf_counter() - start_ts
             
             if timing_tracker is not None:
@@ -87,8 +106,43 @@ def run_with_retry(
                     is_retryable=True
                 )
 
-            if attempt == max_retries - 1:
-                logger.error(f"{log_prefix}Max retries ({max_retries}) exceeded. Final error: {e}")
+            # Custom concise handling for OpenAI background errors (Timeout or Token Limit)
+            error_str = str(e)
+            is_concise = False
+            
+            # Identify concise errors
+            concise_msg = None
+            retry_tag = f"Retry {attempt + 1}/{current_max_retries}:"
+            if "OpenAI Background Job" in error_str:
+                if "timed out after" in error_str:
+                    concise_msg = f"Err: {retry_tag} OpenAI Timeout 3300s"
+                    is_concise = True
+                elif "hit token limit" in error_str or "max_output_tokens" in error_str:
+                    concise_msg = f"Err: {retry_tag} OpenAI Max Tokens"
+                    is_concise = True
+                elif "violating our usage policy" in error_str:
+                    concise_msg = f"Err: {retry_tag} OpenAI Policy Violation"
+                    is_concise = True
+                elif "server_error" in error_str:
+                    concise_msg = f"Err: {retry_tag} OpenAI Server Error"
+                    is_concise = True
+            elif "claude-opus" in error_str and ("peer closed connection" in error_str or "incomplete chunked read" in error_str):
+                concise_msg = f"Err: {retry_tag} Claude Connection Closed"
+                is_concise = True
+            elif "gemini" in error_str.lower() and ("499" in error_str or "cancelled" in error_str.lower()):
+                concise_msg = f"Err: {retry_tag} Gemini Cancelled (499)"
+                is_concise = True
+            elif isinstance(e, RateLimitProviderError):
+                concise_msg = f"Err: {retry_tag} Rate Limit (Wait {retry_delays[min(attempt, len(retry_delays)-1)]}s)"
+                is_concise = True
+
+            # Only print if NOT the final attempt
+            if is_concise and attempt < current_max_retries - 1:
+                print(concise_msg, file=sys.stdout)
+
+            if attempt == current_max_retries - 1:
+                if not is_concise:
+                    logger.error(f"{log_prefix}Max retries ({current_max_retries}) exceeded. Final error: {e}")
                 raise e
             
             if attempt < len(retry_delays):
@@ -96,11 +150,14 @@ def run_with_retry(
             else:
                 sleep_time = retry_delays[-1]
             
+            # Randomize delay (±50s) to prevent thundering herd
+            sleep_time = sleep_time + random.uniform(-50.0, 50.0)
+            
             if isinstance(e, UnknownProviderError):
-                logger.error(f"{log_prefix}!!! UNKNOWN ERROR (after {duration:.2f}s) - RETRYING (Attempt {attempt + 1}/{max_retries}) !!!")
+                logger.error(f"{log_prefix}!!! UNKNOWN ERROR (after {duration:.2f}s) - RETRYING (Attempt {attempt + 1}/{current_max_retries}) !!!")
                 logger.error(f"{log_prefix}Error details: {e}")
-            else:
-                logger.warning(f"{log_prefix}Retryable error (after {duration:.2f}s): {e}. Retrying in {sleep_time}s (Attempt {attempt + 1}/{max_retries})...")
+            elif not is_concise:
+                logger.warning(f"{log_prefix}Retryable error (after {duration:.2f}s): {e}. Retrying in {sleep_time}s (Attempt {attempt + 1}/{current_max_retries})...")
             
             if timing_tracker is not None:
                 timing_tracker.append({
@@ -109,6 +166,7 @@ def run_with_retry(
                     "reason": "retry_delay"
                 })
             time.sleep(sleep_time)
+            attempt += 1
             
     # Should not be reached if we raise in the loop
     return None

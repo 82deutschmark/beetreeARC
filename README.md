@@ -44,6 +44,13 @@ Results file saved to: submissions/results.json
 
 ## Algorithm
 
+Approach: what I'd call Multi-Model Reflective Reasoning
+- Using GPT-5.2, Gemini-3, Opus 4.5
+- Long-horizon/multi-step reasoning (~6hrs/problem)
+- Agentic codegen (>100,000 python calls)
+- Visual reasoning
+- Council of judges
+
 Four key solvers:
 * Multimodal: Generate an image of problem and use as part of the prompt to solve the problem
 * Hint: Extract key hints about how to solve the problem separately, and then supply hints to key models to guide them in the right direction
@@ -210,4 +217,3 @@ gpt-5.1-low can reasonably well follow at least a simple strategy if explicit an
 gpt-5.1-medium is very good with explicit strategies that are unique to the problem and is easily lifted to "high" performance if not more. It also can consume generic advice but it likely has to be at least somewhat relevant to the problem.
 
 gpt-5.1-high is already very high performant but with and explicit strategy problems that it previously couldn't solve become solvable. This suggests that the model isn't failing because it has some inherit inabilities (e.g. certain transforms not possible). It likely can also make previously unsolvable problem solvable simply by hints, but the specificity required of these hints requires further research.
-

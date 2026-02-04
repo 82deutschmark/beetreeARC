@@ -1,6 +1,18 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, Optional, Set
+from typing import Tuple, Optional, Set, List
+
+from src.grid import Grid
+
+@dataclass
+class Example:
+    input: Grid
+    output: Optional[Grid]
+
+@dataclass
+class Task:
+    train: List[Example]
+    test: List[Example]
 
 # Constants
 GPT_5_1_BASE = "gpt-5.1"
@@ -13,6 +25,7 @@ PRICING_PER_1M_TOKENS = {
     GPT_5_1_BASE: {"input": 1.25, "cached_input": 0.125, "output": 10.00},
     GPT_5_2_BASE: {"input": 1.75, "cached_input": 0.175, "output": 14.00},
     "gpt-5.1-codex-max": {"input": 2.50, "cached_input": 0.25, "output": 20.00},
+    "gpt-5.2-codex": {"input": 3.50, "cached_input": 0.35, "output": 28.00},
     CLAUDE_SONNET_BASE: {
         "input": 3.00,
         "cached_input": 0.30,
@@ -42,6 +55,11 @@ ORDERED_MODELS = [
     "gpt-5.2-medium",
     "gpt-5.2-high",
     "gpt-5.2-xhigh",
+    "gpt-5.2-codex-none",
+    "gpt-5.2-codex-low",
+    "gpt-5.2-codex-medium",
+    "gpt-5.2-codex-high",
+    "gpt-5.2-codex-xhigh",
     "claude-sonnet-4.5-no-thinking",
     "claude-sonnet-4.5-thinking-1024",
     "claude-sonnet-4.5-thinking-4000",
@@ -74,9 +92,11 @@ class ModelResponse:
     prompt_tokens: int
     cached_tokens: int
     completion_tokens: int
+    thought_tokens: int = 0
     strategy: Optional[str] = None
     model_name: Optional[str] = None
     timing_breakdown: Optional[list[dict]] = None
+    detailed_logs: Optional[List[dict]] = None
 
 @dataclass
 class ModelConfig:

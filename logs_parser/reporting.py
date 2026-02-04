@@ -1,13 +1,13 @@
 try:
     from .stats import determine_strategies_status
     from .report_models import print_model_summary, print_timing_stats, print_cost_stats, print_zero_duration_stats, print_failed_grid_stats, print_bad_grid_stats, print_timing_stats_v2
-    from .report_tasks import print_task_summary, print_failed_task_model_stats
+    from .report_tasks import print_task_summary, print_failed_task_model_stats, print_codegen_analysis
     from .report_strategies import print_strategy_stats, print_methodology_stats
     from .report_judges import print_judge_performance
 except ImportError:
     from stats import determine_strategies_status
     from report_models import print_model_summary, print_timing_stats, print_cost_stats, print_zero_duration_stats, print_failed_grid_stats, print_bad_grid_stats, print_timing_stats_v2
-    from report_tasks import print_task_summary, print_failed_task_model_stats
+    from report_tasks import print_task_summary, print_failed_task_model_stats, print_codegen_analysis
     from report_strategies import print_strategy_stats, print_methodology_stats
     from report_judges import print_judge_performance
 
@@ -27,6 +27,10 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
     solved_tasks_count = 0
     vote_only_solved_count = 0
     score_only_solved_count = 0
+    duo_pick_solved_count = 0
+    
+    score_only_attempts = 0
+    duo_pick_attempts = 0
 
     for task, test in sorted_keys:
         total_tasks_count += 1
@@ -44,6 +48,15 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
             
         if strategies["score"]:
             score_only_solved_count += 1
+            
+        if strategies.get("score_active"):
+            score_only_attempts += 1
+
+        if strategies["duo_pick"]:
+            duo_pick_solved_count += 1
+            
+        if strategies.get("duo_pick_active"):
+            duo_pick_attempts += 1
 
         print(f"{task}:{test} {status}")
         
@@ -66,7 +79,20 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
                 cost = call_info["cost"]
                 status_val = call_info["status"]
                 
-                print(f"    {name:<{max_name_len}} {duration:8.2f}s  ${cost:9.4f}  {status_val}")
+                verification_status = "-"
+                details = call_info.get("verification_details")
+                if details and isinstance(details, dict):
+                    verification_status = details.get("status", "-")
+                    
+                    if verification_status == "PASS":
+                        aug = details.get("augmented_stats", {})
+                        if aug:
+                            rot = aug.get("rotation_pass_rate", "-")
+                            ref = aug.get("reflection_pass_rate", "-")
+                            col = aug.get("color_pass_rate", "-")
+                            verification_status += f" ({rot}/{ref}/{col})"
+
+                print(f"    {name:<{max_name_len}} {duration:8.2f}s  ${cost:9.4f}  {status_val:<8} {verification_status}")
 
     # Model Stats
     max_model_len = 0
@@ -84,13 +110,14 @@ def print_full_report(task_data, model_stats, failure_count=0, max_token_failure
         print_timing_stats_v2(timing_stats_v2, max_model_len)
 
     print_cost_stats(model_stats, max_model_len, sorted_models)
-    print_strategy_stats(total_tasks_count, solved_tasks_count, vote_only_solved_count, score_only_solved_count)
+    print_strategy_stats(total_tasks_count, solved_tasks_count, vote_only_solved_count, score_only_solved_count, duo_pick_solved_count, score_only_attempts, duo_pick_attempts)
     print_methodology_stats(task_data)
     print_judge_performance(task_data)
     print_failed_task_model_stats(task_data)
     print_zero_duration_stats(model_stats, max_model_len, sorted_models)
     print_failed_grid_stats(model_stats, max_model_len, sorted_models)
     print_bad_grid_stats(model_stats, max_model_len, sorted_models)
+    print_codegen_analysis(task_data)
 
     if failure_count > 0:
         print("\n" + "-" * 80)

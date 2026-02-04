@@ -31,6 +31,11 @@ def parse_model_arg(model_arg: str) -> ModelConfig:
         effort = parts[-1]
         return ModelConfig("openai", GPT_5_1_BASE, effort)
 
+    if model_arg.startswith("gpt-5.2-codex-"):
+        parts = model_arg.split("-")
+        effort = parts[-1]
+        return ModelConfig("openai", "gpt-5.2-codex", effort)
+
     if model_arg.startswith("gpt-5.2-"):
         parts = model_arg.split("-")
         effort = parts[-1]
@@ -83,6 +88,10 @@ def calculate_cost(model_config: ModelConfig, response: ModelResponse) -> float:
         0, response.prompt_tokens - response.cached_tokens
     )
 
+    # Calculate total output tokens for billing.
+    # We assume completion_tokens already includes any reasoning/thought tokens for all providers.
+    billed_output_tokens = response.completion_tokens
+
     cost = (
         (non_cached_input / 1_000_000 * pricing["input"])
         + (
@@ -90,7 +99,7 @@ def calculate_cost(model_config: ModelConfig, response: ModelResponse) -> float:
             / 1_000_000
             * pricing.get("cached_input", 0)
         )
-        + (response.completion_tokens / 1_000_000 * pricing["output"])
+        + (billed_output_tokens / 1_000_000 * pricing["output"])
     )
     return cost
 
@@ -109,11 +118,13 @@ def call_model(
     use_background: bool = False,
     run_timestamp: str = None,
     timing_tracker: list[dict] = None,
+    enable_code_execution: bool = False,
 ) -> ModelResponse:
     config = parse_model_arg(model_arg)
     timings = timing_tracker if timing_tracker is not None else []
 
     if config.provider == "openai":
+        # OpenAI supports code interpreter tool
         response = call_openai_internal(
             openai_client,
             prompt,
@@ -129,6 +140,7 @@ def call_model(
             anthropic_client=anthropic_client,
             model_alias=model_arg,
             timing_tracker=timings,
+            enable_code_execution=enable_code_execution
         )
     elif config.provider == "anthropic":
         if not anthropic_client:
@@ -161,6 +173,7 @@ def call_model(
             run_timestamp=run_timestamp,
             model_alias=model_arg,
             timing_tracker=timings,
+            enable_code_execution=enable_code_execution
         )
     else:
         raise ValueError(f"Unknown provider {config.provider}")

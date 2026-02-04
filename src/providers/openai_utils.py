@@ -1,9 +1,12 @@
 import openai
-from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError
+from src.errors import RetryableProviderError, NonRetryableProviderError, UnknownProviderError, RateLimitProviderError
 
 def _map_openai_exception(e: Exception, model_name: str):
     """Maps OpenAI SDK exceptions to internal provider errors."""
-    if isinstance(e, (openai.RateLimitError, openai.APIConnectionError, openai.InternalServerError)):
+    if isinstance(e, openai.RateLimitError):
+        raise RateLimitProviderError(f"OpenAI Rate Limit (Model: {model_name}): {e}") from e
+
+    if isinstance(e, (openai.APIConnectionError, openai.InternalServerError)):
         raise RetryableProviderError(f"OpenAI Transient Error (Model: {model_name}): {e}") from e
     
     if isinstance(e, (openai.BadRequestError, openai.AuthenticationError, openai.PermissionDeniedError)):

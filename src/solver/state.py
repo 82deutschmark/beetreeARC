@@ -12,7 +12,7 @@ from src.logging import setup_logging, write_step_log, PrefixedStdout
 from src.models import parse_model_arg, PRICING_PER_1M_TOKENS, GEMINI_3_BASE
 
 class SolverState:
-    def __init__(self, task_id: str, test_index: int, verbose: int, is_testing: bool, run_timestamp: str, task_path: Path = None, answer_path: Path = None, judge_model: str = "gemini-3-high", old_pick_solution: bool = False, task_status=None, openai_background: bool = True, judge_consistency_enable: bool = False):
+    def __init__(self, task_id: str, test_index: int, verbose: int, is_testing: bool, run_timestamp: str, task_path: Path = None, answer_path: Path = None, judge_model: str = "gpt-5.2-xhigh", old_pick_solution: bool = False, task_status=None, openai_background: bool = True, judge_consistency_enable: bool = False, judge_duo_pick_enable: bool = True, codegen_prompt: str = "v1b", logs_directory: str = "logs/", task_data: dict = None):
         self.task_id = task_id
         self.test_index = test_index
         self.verbose = verbose
@@ -24,6 +24,9 @@ class SolverState:
         self.task_status = task_status if task_status is not None else {}
         self.openai_background = openai_background
         self.judge_consistency_enable = judge_consistency_enable
+        self.judge_duo_pick_enable = judge_duo_pick_enable
+        self.codegen_prompt = codegen_prompt
+        self.logs_directory = logs_directory
         self.task_status.setdefault('step', '0')
         self.task_status.setdefault('phase', 'Init')
         self.task_status.setdefault('start_time', time.time())
@@ -50,18 +53,21 @@ class SolverState:
         }
         
         # Load Task
-        if task_path is None:
+        if task_path is None and task_data is None:
             task_path = find_task_path(task_id)
         self.task_path = task_path
         
         # Initialize Clients
         openai_key, claude_key, google_keys = get_api_keys()
-        self.http_client = get_http_client(timeout=3600.0)
+        self.http_client = get_http_client(timeout=3300.0)
         self.openai_client = OpenAI(api_key=openai_key, http_client=self.http_client) if openai_key else None
         self.anthropic_client = Anthropic(api_key=claude_key, http_client=self.http_client) if claude_key else None
         self.google_keys = google_keys
         
-        self.task = load_task(task_path, answer_path=answer_path)
+        if task_data:
+            self.task = load_task(task_data, answer_path=answer_path)
+        else:
+            self.task = load_task(task_path, answer_path=answer_path)
         
         test_idx = test_index - 1
         if test_idx < 0 or test_idx >= len(self.task.test):
@@ -84,14 +90,16 @@ class SolverState:
                 self.total_cost += res.get("cost", 0)
                 
                 # Usage Stats Aggregation
-                input_tokens = res.get("input_tokens", 0)
-                cached_tokens = res.get("cached_tokens", 0)
-                output_tokens = res.get("output_tokens", 0)
+                input_tokens = res.get("input_tokens") or 0
+                cached_tokens = res.get("cached_tokens") or 0
+                output_tokens = res.get("output_tokens") or 0
+                reasoning_tokens = res.get("reasoning_tokens") or 0
                 
                 self.usage_stats["prompt_tokens"] += (input_tokens + cached_tokens)
                 self.usage_stats["completion_tokens"] += output_tokens
                 self.usage_stats["total_tokens"] += (input_tokens + cached_tokens + output_tokens)
-                self.usage_stats["accepted_prediction_tokens"] += output_tokens # Per instructions
+                self.usage_stats["reasoning_tokens"] += reasoning_tokens
+                self.usage_stats["accepted_prediction_tokens"] += (output_tokens - reasoning_tokens)
                 
                 # Cost Breakdown Calculation
                 try:
@@ -107,28 +115,7 @@ class SolverState:
                         if base_model == GEMINI_3_BASE and (input_tokens + cached_tokens) > 200000:
                             pricing = {"input": 4.00, "cached_input": 0.40, "output": 18.00}
                             
-                        non_cached_input = max(0, input_tokens) # assuming input_tokens is already non-cached in res or check logic. 
-                        # In models.py: calculate_cost uses response.prompt_tokens - response.cached_tokens. 
-                        # res["input_tokens"] usually comes from response.prompt_tokens (total prompt) or just prompt?
-                        # Let's assume res["input_tokens"] is TOTAL PROMPT tokens based on standard usage, or check usage.
-                        # Actually standard OpenAI usage: prompt_tokens is total. 
-                        # But in process_results above I did: input_tokens + cached_tokens. 
-                        # If res["input_tokens"] is total prompt tokens, then adding cached_tokens again is double counting if cached is included.
-                        # Let's check src/models.py: response.prompt_tokens is from usage.prompt_tokens. 
-                        # response.cached_tokens is from usage.prompt_tokens_details.cached_tokens.
-                        # So prompt_tokens INCLUDES cached_tokens.
-                        # Re-checking previous logic:
-                        # calculate_cost: non_cached_input = max(0, response.prompt_tokens - response.cached_tokens)
-                        
-                        # So:
-                        total_prompt_tokens = input_tokens # Assuming res['input_tokens'] maps to response.prompt_tokens
-                        # If res['input_tokens'] was derived differently, this might be off.
-                        # Assuming res['input_tokens'] == response.prompt_tokens (Total)
-                        
-                        # Fix for token aggregation above:
-                        # self.usage_stats["prompt_tokens"] += total_prompt_tokens (Total)
-                        # self.usage_stats["total_tokens"] += total_prompt_tokens + output_tokens
-                        
+                        total_prompt_tokens = input_tokens 
                         non_cached_val = max(0, total_prompt_tokens - cached_tokens)
                         
                         p_cost = (non_cached_val / 1_000_000 * pricing["input"]) + \
@@ -138,7 +125,7 @@ class SolverState:
                         
                         self.usage_stats["prompt_cost"] += p_cost
                         self.usage_stats["completion_cost"] += c_cost
-                        self.usage_stats["total_cost"] += (p_cost + c_cost)
+                        self.usage_stats["total_cost"] += res.get("cost", 0)
                 except Exception as e:
                     pass # Fallback or ignore cost breakdown errors
                 
@@ -151,12 +138,16 @@ class SolverState:
                     "actual_model": res.get("model"),
                     "input_tokens": res.get("input_tokens", 0),
                     "output_tokens": res.get("output_tokens", 0),
+                    "reasoning_tokens": res.get("reasoning_tokens", 0),
                     "cached_tokens": res.get("cached_tokens", 0),
                     "timing_breakdown": res.get("timing_breakdown"),
                     "Full raw LLM call": res["prompt"],
                     "Full raw LLM response": res["full_response"],
                     "Extracted grid": res["grid"],
                     "is_correct": res.get("is_correct"),
+                    "verification_details": res.get("verification_details"),
+                    "v3_details": res.get("v3_details"),
+                    "detailed_logs": res.get("detailed_logs"),
                 }
                 
                 # Store reasoning for the Judge
@@ -189,6 +180,7 @@ class SolverState:
                 print("\n[finalize] Using old pick_solution logic.")
             picked_solutions, result, selection_metadata = pick_solution(self.candidates_object, self.verbose)
         else:
+            total_attempts = sum(self.run_id_counts.values())
             picked_solutions, result, selection_metadata = pick_solution_v2(
                 self.candidates_object, 
                 self.reasoning_store, 
@@ -200,7 +192,9 @@ class SolverState:
                             self.judge_model,
                             self.verbose,
                             openai_background=self.openai_background,
-                            judge_consistency_enable=self.judge_consistency_enable
+                            judge_consistency_enable=self.judge_consistency_enable,
+                            judge_duo_pick_enable=self.judge_duo_pick_enable,
+                            total_attempts=total_attempts
                         )        
         if not has_ground_truth:
             outcome = "SUBMITTED"

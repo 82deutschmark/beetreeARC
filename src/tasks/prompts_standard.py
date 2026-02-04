@@ -1,66 +1,7 @@
-import json
-from dataclasses import dataclass
-from pathlib import Path
-from typing import List, Optional
-
-from src.grid import Grid, format_grid
-
-@dataclass
-class Example:
-    input: Grid
-    output: Optional[Grid]
-
-@dataclass
-class Task:
-    train: List[Example]
-    test: List[Example]
-
-def load_task(json_path: Path, answer_path: Path = None) -> Task:
-    data = json.loads(json_path.read_text())
-
-    def to_examples(items: List[dict], is_test: bool = False) -> List[Example]:
-        examples = []
-        for i, ex in enumerate(items):
-            input_grid = ex["input"]
-            output_grid = ex.get("output")
-            examples.append(Example(input=input_grid, output=output_grid))
-        return examples
-
-    train_examples = to_examples(data["train"])
-    test_examples = to_examples(data["test"], is_test=True)
-
-    # If answer_path is provided, try to load outputs from it
-    if answer_path and answer_path.exists():
-        try:
-            answer_data = json.loads(answer_path.read_text())
-            # Assuming answer file has same structure: {"test": [{"output": ...}, ...]}}
-            if "test" in answer_data:
-                answer_tests = answer_data["test"]
-                for i, ex in enumerate(test_examples):
-                    if i < len(answer_tests) and ex.output is None:
-                        ex.output = answer_tests[i].get("output")
-        except Exception as e:
-            print(f"Warning: Failed to load answers from {answer_path}: {e}")
-
-    return Task(train=train_examples, test=test_examples)
-
-def load_task_paths(list_path: Path) -> List[Path]:
-    payload = json.loads(list_path.read_text())
-    if not isinstance(payload, dict) or "tasks" not in payload:
-        raise ValueError(f"Task list in {list_path} must be a dict with a 'tasks' key.")
-    
-    tasks = payload["tasks"]
-    if not isinstance(tasks, list):
-        raise ValueError(f"The 'tasks' value in {list_path} must be a list.")
-
-    result = []
-    for item in tasks:
-        if not isinstance(item, str):
-            raise ValueError("Each task entry must be a string path.")
-        result.append(Path(item))
-    return result
-
 import random
+from typing import List
+from src.grid import format_grid
+from src.types import Example
 
 def build_objects_extraction_prompt(
     train_examples: List[Example],
@@ -73,15 +14,12 @@ def build_objects_extraction_prompt(
         ""
     ]
     
-    # Collect all grids
     all_grids = []
     for ex in train_examples:
         all_grids.append(ex.input)
         if ex.output:
             all_grids.append(ex.output)
     all_grids.append(test_example.input)
-    
-    # Randomize order
     random.shuffle(all_grids)
     
     for grid in all_grids:
@@ -123,15 +61,22 @@ def build_prompt(
     image_path: str = None,
     trigger_deep_thinking: bool = False,
     objects_insertion: str = None,
+    custom_instruction: str = None,
 ) -> str:
-    lines = [
-        "You are solving an ARC (Abstraction and Reasoning Corpus) task.",
-    ]
-    lines.append("Each grid cell is an integer 0-9 representing a color.")
-    lines.append(
-        "Use the solved examples to infer the transformation and apply it to the test input."
-    )
-    lines.append("")
+    lines = []
+    if custom_instruction:
+        lines.append(custom_instruction)
+        lines.append("")
+    else:
+        lines = [
+            "You are solving an ARC (Abstraction and Reasoning Corpus) task.",
+        ]
+        lines.append("Each grid cell is an integer 0-9 representing a color.")
+        lines.append(
+            "Use the solved examples to infer the transformation and apply it to the test input."
+        )
+        lines.append("")
+
     lines.append("Solved examples:")
     for idx, ex in enumerate(train_examples, start=1):
         lines.append(f"Example {idx}:")

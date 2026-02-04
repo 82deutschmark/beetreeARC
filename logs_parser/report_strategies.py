@@ -1,4 +1,4 @@
-def print_strategy_stats(total_tasks_count, solved_tasks_count, vote_only_solved_count, score_only_solved_count):
+def print_strategy_stats(total_tasks_count, solved_tasks_count, vote_only_solved_count, score_only_solved_count, duo_pick_solved_count, score_only_attempts, duo_pick_attempts):
     print("\n" + "-" * 80)
     print("Strategy Performance")
     print("-" * 80)
@@ -16,9 +16,16 @@ def print_strategy_stats(total_tasks_count, solved_tasks_count, vote_only_solved
     print(f"{ 'Vote only':<20}  {vote_only_solved_count:<8}  {vote_only_failed:<8}  {vote_only_rate:6.2f}%")
 
     # Score only Strategy
-    score_only_failed = total_tasks_count - score_only_solved_count
-    score_only_rate = (score_only_solved_count / total_tasks_count) * 100 if total_tasks_count > 0 else 0
-    print(f"{ 'Score only':<20}  {score_only_solved_count:<8}  {score_only_failed:<8}  {score_only_rate:6.2f}%")
+    if score_only_attempts > 0:
+        score_only_failed = score_only_attempts - score_only_solved_count
+        score_only_rate = (score_only_solved_count / score_only_attempts) * 100
+        print(f"{ 'Score only':<20}  {score_only_solved_count:<8}  {score_only_failed:<8}  {score_only_rate:6.2f}%")
+
+    # Duo Pick Strategy
+    if duo_pick_attempts > 0:
+        duo_pick_failed = duo_pick_attempts - duo_pick_solved_count
+        duo_pick_rate = (duo_pick_solved_count / duo_pick_attempts) * 100
+        print(f"{ 'Duo Pick':<20}  {duo_pick_solved_count:<8}  {duo_pick_failed:<8}  {duo_pick_rate:6.2f}%")
 
 def print_methodology_stats(task_data):
     print("\n" + "-" * 80)

@@ -1,11 +1,12 @@
 def print_judge_performance(task_data):
-    print("\n" + "-" * 80)
+    print("\n" + "-" * 90)
     print("Judge Performance Comparison")
-    print("-" * 80)
+    print("-" * 90)
     
     stats = {
         "logic": {"tasks": 0, "cost": 0, "duration": 0, "top1_correct": 0, "top3_recall_hits": 0, "top3_recall_opportunities": 0, "score_correct_sum": 0, "score_correct_count": 0, "score_incorrect_sum": 0, "score_incorrect_count": 0},
-        "consistency": {"tasks": 0, "cost": 0, "duration": 0, "top1_correct": 0, "top3_recall_hits": 0, "top3_recall_opportunities": 0, "score_correct_sum": 0, "score_correct_count": 0, "score_incorrect_sum": 0, "score_incorrect_count": 0}
+        "consistency": {"tasks": 0, "cost": 0, "duration": 0, "top1_correct": 0, "top3_recall_hits": 0, "top3_recall_opportunities": 0, "score_correct_sum": 0, "score_correct_count": 0, "score_incorrect_sum": 0, "score_incorrect_count": 0},
+        "duo_pick": {"tasks": 0, "cost": 0, "duration": 0, "top1_correct": 0, "top3_recall_hits": 0, "top3_recall_opportunities": 0, "score_correct_sum": 0, "score_correct_count": 0, "score_incorrect_sum": 0, "score_incorrect_count": 0}
     }
     
     for key, entry in task_data.items():
@@ -15,7 +16,7 @@ def print_judge_performance(task_data):
             
         judge_stats = finish_data.get("judge_stats", {})
         
-        for judge_name in ["logic", "consistency"]:
+        for judge_name in ["logic", "consistency", "duo_pick"]:
             if judge_name in judge_stats:
                 j_data = judge_stats[judge_name]
                 s = stats[judge_name]
@@ -51,7 +52,7 @@ def print_judge_performance(task_data):
                         s["score_incorrect_sum"] += e["score"]
                         s["score_incorrect_count"] += 1
 
-    print(f"{ 'Metric':<25} { 'Logic Judge':<20} { 'Consistency Judge':<20}")
+    print(f"{ 'Metric':<25} { 'Logic Judge':<20} { 'Consistency Judge':<20} { 'Duo Pick Judge':<20}")
     
     # Calculate Metrics
     metrics = [
@@ -67,4 +68,5 @@ def print_judge_performance(task_data):
     for label, func in metrics:
         l_val = func(stats["logic"])
         c_val = func(stats["consistency"])
-        print(f"{label:<25} {l_val:<20} {c_val:<20}")
+        d_val = func(stats["duo_pick"])
+        print(f"{label:<25} {l_val:<20} {c_val:<20} {d_val:<20}")
