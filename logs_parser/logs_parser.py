@@ -86,10 +86,23 @@ def extract_code_from_llm_response(llm_code: str) -> str | None:
                 
     return code if code and "def solver" in code else None
 
-def parse_logs(directory, codegen_analysis=None, all_analysis=None, duo_judge_analysis_only=False):
+def parse_logs(directory, codegen_analysis=None, all_analysis=None, duo_judge_analysis_only=False, filter_task_test=None):
     if not os.path.isdir(directory):
         print(f"Error: Directory '{directory}' does not exist.")
         return
+
+    allowed_tasks = None
+    if filter_task_test:
+        allowed_tasks = set()
+        for item in filter_task_test.split(','):
+            item = item.strip()
+            if not item:
+                continue
+            try:
+                task_id, test_id = item.split(':')
+                allowed_tasks.add((task_id, int(test_id)))
+            except ValueError:
+                print(f"Warning: Invalid format in filter-task-test: {item}. Expected task:test.")
 
     # Filter variables
     target_task = None
@@ -117,7 +130,11 @@ def parse_logs(directory, codegen_analysis=None, all_analysis=None, duo_judge_an
         if match:
             task_id = match.group(1)
             test_id_str = match.group(2)
+            test_id = int(test_id_str)
             step_name = match.group(3) # '1', '3', '5', 'finish' etc.
+
+            if allowed_tasks is not None and (task_id, test_id) not in allowed_tasks:
+                continue
             
             # Filter if analysis requested
             if target_task and (task_id != target_task or test_id_str != target_test):
@@ -127,7 +144,7 @@ def parse_logs(directory, codegen_analysis=None, all_analysis=None, duo_judge_an
             if step_name in ["2", "4"]:
                 continue
 
-            key = (task_id, int(test_id_str))
+            key = (task_id, test_id)
             if key not in task_data:
                 task_data[key] = {
                     "steps": {},
@@ -422,9 +439,16 @@ def parse_logs(directory, codegen_analysis=None, all_analysis=None, duo_judge_an
                 with open(os.path.join(directory, f), 'r') as fp:
                     for line in fp:
                         if line.strip():
-                            failure_count += 1
                             try:
                                 record = json.loads(line)
+
+                                if allowed_tasks is not None:
+                                    ft = record.get("task_id")
+                                    fi = record.get("test_index")
+                                    if ft is None or fi is None or (ft, int(fi)) not in allowed_tasks:
+                                        continue
+
+                                failure_count += 1
                                 error_msg = record.get("error_message", "")
                                 
                                 is_max_token = "max_output_tokens" in error_msg
@@ -459,7 +483,9 @@ def parse_logs(directory, codegen_analysis=None, all_analysis=None, duo_judge_an
                                     other_failure_count += 1
                                     
                             except json.JSONDecodeError:
-                                other_failure_count += 1 # Count as 'other' (parse error)
+                                if allowed_tasks is None:
+                                    failure_count += 1
+                                    other_failure_count += 1 # Count as 'other' (parse error)
             except Exception as e:
                 print(f"Warning: Could not read failure file {f}: {e}")
             break
@@ -488,9 +514,10 @@ def main():
     parser.add_argument("--codegen_analysis", help="Perform specialized analysis for a specific task:test (e.g. '221dfab4:1'), only including codegen PASS solutions.", default=None)
     parser.add_argument("--all_analysis", help="Perform comprehensive analysis for a specific task:test, including all solvers (codegen filtered to PASS).", default=None)
     parser.add_argument("--duo-judge-analysis-only", action="store_true", help="Perform specialized duo judge analysis for all tasks.", default=False)
+    parser.add_argument("--filter-task-test", help="Comma-separated list of task_id:test_id pairs to filter results (e.g. 'e3721c99:1,a32d8b75:2').", default=None)
     args = parser.parse_args()
 
-    parse_logs(args.directory, args.codegen_analysis, args.all_analysis, args.duo_judge_analysis_only)
+    parse_logs(args.directory, args.codegen_analysis, args.all_analysis, args.duo_judge_analysis_only, args.filter_task_test)
 
 if __name__ == "__main__":
     main()
