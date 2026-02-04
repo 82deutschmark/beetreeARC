@@ -17,6 +17,9 @@ tests/**/__pycache__/
 logs_big/
 logs_parser/logs_random_15/
 logs_parser/logs_safe_15/
+logs_parser/logs*/
+logs_parser/logs*.tgz
+logs_test/
 logs_parser/prompt.txt
 data/
 config/api_keys.env-main
